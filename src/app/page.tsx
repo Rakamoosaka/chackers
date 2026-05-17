@@ -5,7 +5,7 @@ import { AppNav } from "@/components/layout/app-nav";
 export default function Home() {
   return (
     <main className="app-shell">
-      <AppNav />
+      <AppNav current="Play" />
       <section className="app-main" aria-label="Chackers play screen">
         <div className="top-bar">
           <div>

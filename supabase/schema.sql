@@ -39,7 +39,7 @@ create table if not exists public.match_moves (
 
 create table if not exists public.leaderboard_entries (
   id uuid primary key default gen_random_uuid(),
-  profile_id uuid references public.profiles(id) on delete cascade,
+  profile_id uuid unique references public.profiles(id) on delete cascade,
   display_name text not null,
   city text not null default 'Almaty',
   league text not null default 'Bronze' check (league in ('Bronze', 'Silver', 'Gold', 'Elite')),
@@ -48,6 +48,10 @@ create table if not exists public.leaderboard_entries (
   seeded boolean not null default false,
   updated_at timestamptz not null default now()
 );
+
+create unique index if not exists leaderboard_entries_profile_id_key
+  on public.leaderboard_entries(profile_id)
+  where profile_id is not null;
 
 create table if not exists public.puzzle_progress (
   id uuid primary key default gen_random_uuid(),
@@ -127,6 +131,9 @@ create policy "users insert own match moves" on public.match_moves
 create policy "leaderboard is public read" on public.leaderboard_entries
   for select using (true);
 
+create policy "users upsert own leaderboard row" on public.leaderboard_entries
+  for all using (auth.uid() = profile_id) with check (auth.uid() = profile_id);
+
 create policy "users manage own puzzle progress" on public.puzzle_progress
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 
@@ -138,6 +145,21 @@ create policy "authenticated users create rooms" on public.rooms
 
 create policy "hosts update rooms" on public.rooms
   for update using (auth.uid() = host_id) with check (auth.uid() = host_id);
+
+create policy "room players update rooms" on public.rooms
+  for update using (
+    exists (
+      select 1 from public.room_players
+      where room_players.room_id = rooms.id
+      and room_players.user_id = auth.uid()
+    )
+  ) with check (
+    exists (
+      select 1 from public.room_players
+      where room_players.room_id = rooms.id
+      and room_players.user_id = auth.uid()
+    )
+  );
 
 create policy "room players are readable" on public.room_players
   for select using (true);

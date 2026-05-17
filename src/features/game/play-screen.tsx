@@ -1,34 +1,235 @@
 "use client";
 
-import { RotateCcw, StepBack } from "lucide-react";
-import { useMemo, useState } from "react";
+import { Link2, RotateCcw, StepBack } from "lucide-react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { LeaderboardPanel } from "@/features/leaderboard/leaderboard-panel";
+import { ProfileSummary } from "@/features/profile/profile-summary";
+import { useProfile } from "@/features/profile/use-profile";
+import { analyzeGame } from "./coach/analyze-game";
+import { selectAiMove, type AiDifficulty } from "./ai/select-move";
 import {
-  applyMove,
+  applyMoveWithMetadata,
   createInitialBoard,
   formatSquare,
+  getContinuingCaptures,
   getLegalMoves,
+  getWinner,
   squareKey,
 } from "./engine/board";
-import type { Board, Move, Player, Square } from "./engine/types";
+import type { Board, GameWinner, Move, Player, Square } from "./engine/types";
+import {
+  saveCompletedMatch,
+  type PlayedMove,
+} from "./storage/match-service";
+import { RecentMatchesPanel } from "./storage/recent-matches-panel";
+import type { TimeControl } from "@/types/database";
 
-const initialMoveList = [
-  "Red opens with c3-b4",
-  "Black answers f6-g5",
-  "Red controls the center",
-];
+type GameMode = "ai" | "local";
+
+type PlayerClocks = Record<Player, number>;
+
+type GameSnapshot = {
+  board: Board;
+  turn: Player;
+  forcedPiece: Square | null;
+  winner: GameWinner;
+  moveLog: string[];
+  lastMove: Move | null;
+  clocks: PlayerClocks;
+};
+
+const timeControlSeconds: Record<TimeControl, number> = {
+  bullet: 60,
+  blitz: 300,
+  rapid: 600,
+};
 
 export function PlayScreen() {
   const [board, setBoard] = useState<Board>(() => createInitialBoard());
   const [turn, setTurn] = useState<Player>("red");
+  const [mode, setMode] = useState<GameMode>("ai");
+  const [difficulty, setDifficulty] = useState<AiDifficulty>("challenger");
+  const [timeControl, setTimeControl] = useState<TimeControl>("blitz");
+  const [clocks, setClocks] = useState<PlayerClocks>(() =>
+    createClocks("blitz"),
+  );
   const [selected, setSelected] = useState<Square | null>(null);
-  const [moves, setMoves] = useState<string[]>(initialMoveList);
+  const [forcedPiece, setForcedPiece] = useState<Square | null>(null);
+  const [moveLog, setMoveLog] = useState<string[]>([]);
+  const [playedMoves, setPlayedMoves] = useState<PlayedMove[]>([]);
+  const [history, setHistory] = useState<GameSnapshot[]>([]);
+  const [lastMove, setLastMove] = useState<Move | null>(null);
+  const [winner, setWinner] = useState<GameWinner>(null);
+  const [saveStatus, setSaveStatus] = useState("Sign in to save games.");
+  const [matchHistoryKey, setMatchHistoryKey] = useState(0);
+  const savedMatchKeyRef = useRef<string | null>(null);
+  const { profile, loading: profileLoading, error: profileError, refreshProfile } =
+    useProfile();
 
-  const legalMoves = useMemo(() => getLegalMoves(board, turn), [board, turn]);
+  const legalMoves = useMemo(() => {
+    const moves = getLegalMoves(board, turn);
+
+    if (!forcedPiece) {
+      return moves;
+    }
+
+    return moves.filter((move) => squareKey(move.from) === squareKey(forcedPiece));
+  }, [board, forcedPiece, turn]);
   const selectedMoves = selected
     ? legalMoves.filter((move) => squareKey(move.from) === squareKey(selected))
     : [];
+  const isAiThinking = mode === "ai" && turn === "black" && !winner;
+  const displayedSaveStatus =
+    winner && !profile ? "Sign in to save this result." : saveStatus;
+  const coachSummary =
+    winner && winner !== "draw" ? analyzeGame(playedMoves, winner) : null;
+
+  const commitMove = useCallback((move: Move) => {
+    setHistory((current) => [
+      {
+        board,
+        turn,
+        forcedPiece,
+        winner,
+        moveLog,
+        lastMove,
+        clocks,
+      },
+      ...current,
+    ]);
+
+    const { board: nextBoard, move: moveWithMetadata } = applyMoveWithMetadata(
+      board,
+      move,
+    );
+    const continuingCaptures = moveWithMetadata.captured?.length
+      ? getContinuingCaptures(nextBoard, move.to)
+      : [];
+    const mustContinue = continuingCaptures.length > 0;
+    const nextTurn = mustContinue ? turn : turn === "red" ? "black" : "red";
+    const nextWinner = mustContinue ? null : getWinner(nextBoard, nextTurn);
+    const notation = `${turn === "red" ? "Red" : "Black"} ${formatSquare(move.from)}${move.captured?.length ? "x" : "-"}${formatSquare(move.to)}`;
+
+    setBoard(nextBoard);
+    setMoveLog((current) => [notation, ...current]);
+    setPlayedMoves((current) => [...current, { ...moveWithMetadata, player: turn }]);
+    setTurn(nextTurn);
+    setForcedPiece(mustContinue ? move.to : null);
+    setLastMove(move);
+    setWinner(nextWinner);
+    setSelected(null);
+  }, [board, clocks, forcedPiece, lastMove, moveLog, turn, winner]);
+
+  useEffect(() => {
+    const matchKey = `${winner}-${playedMoves.length}`;
+
+    if (
+      !winner ||
+      winner === "draw" ||
+      savedMatchKeyRef.current === matchKey
+    ) {
+      return;
+    }
+
+    if (!profile) {
+      return;
+    }
+
+    async function persistMatch() {
+      if (!profile || !winner || winner === "draw") {
+        return;
+      }
+
+      savedMatchKeyRef.current = matchKey;
+      setSaveStatus("Saving match");
+
+      try {
+        await saveCompletedMatch({
+          profile,
+          mode,
+          timeControl,
+          opponent: mode === "ai" ? `${difficulty} AI` : "Local player",
+          winner,
+          moves: playedMoves,
+        });
+
+        setSaveStatus("Match saved");
+        setMatchHistoryKey((current) => current + 1);
+        void refreshProfile();
+      } catch (error) {
+        savedMatchKeyRef.current = null;
+        setSaveStatus(
+          error instanceof Error ? error.message : "Match save failed",
+        );
+      }
+    }
+
+    void persistMatch();
+  }, [
+    difficulty,
+    mode,
+    playedMoves,
+    profile,
+    refreshProfile,
+    timeControl,
+    winner,
+  ]);
+
+  useEffect(() => {
+    if (!isAiThinking) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      const aiMove = selectAiMove(board, "black", difficulty);
+
+      if (aiMove) {
+        commitMove(aiMove);
+      }
+    }, 450);
+
+    return () => window.clearTimeout(timer);
+  }, [board, commitMove, difficulty, isAiThinking]);
+
+  useEffect(() => {
+    if (winner) {
+      return;
+    }
+
+    const timer = window.setInterval(() => {
+      setClocks((current) => {
+        if (current[turn] <= 0) {
+          return current;
+        }
+
+        const nextRemaining = Math.max(0, current[turn] - 1);
+
+        if (nextRemaining === 0) {
+          const timeoutWinner = turn === "red" ? "black" : "red";
+          setWinner(timeoutWinner);
+          setSelected(null);
+          setForcedPiece(null);
+          setMoveLog((log) => [
+            `${timeoutWinner === "red" ? "Red" : "Black"} wins on time`,
+            ...log,
+          ]);
+        }
+
+        return {
+          ...current,
+          [turn]: nextRemaining,
+        };
+      });
+    }, 1000);
+
+    return () => window.clearInterval(timer);
+  }, [turn, winner]);
 
   function handleSquareClick(square: Square) {
+    if (winner || isAiThinking) {
+      return;
+    }
+
     const piece = board[square.row][square.col];
     const chosenMove = selectedMoves.find(
       (move) => squareKey(move.to) === squareKey(square),
@@ -39,7 +240,10 @@ export function PlayScreen() {
       return;
     }
 
-    if (piece?.player === turn) {
+    if (
+      piece?.player === turn &&
+      (!forcedPiece || squareKey(forcedPiece) === squareKey(square))
+    ) {
       setSelected(square);
       return;
     }
@@ -47,30 +251,80 @@ export function PlayScreen() {
     setSelected(null);
   }
 
-  function commitMove(move: Move) {
-    setBoard((current) => applyMove(current, move));
-    setMoves((current) => [
-      `${turn === "red" ? "Red" : "Black"} ${formatSquare(move.from)}-${formatSquare(move.to)}`,
-      ...current,
-    ]);
-    setTurn((current) => (current === "red" ? "black" : "red"));
-    setSelected(null);
+  function restart() {
+    resetGame(timeControl);
   }
 
-  function restart() {
+  function resetGame(nextTimeControl: TimeControl) {
     setBoard(createInitialBoard());
     setTurn("red");
+    setClocks(createClocks(nextTimeControl));
     setSelected(null);
-    setMoves([]);
+    setForcedPiece(null);
+    setMoveLog([]);
+    setPlayedMoves([]);
+    setHistory([]);
+    setLastMove(null);
+    setWinner(null);
+    savedMatchKeyRef.current = null;
+    setSaveStatus(profile ? "Ready to save completed games." : "Sign in to save games.");
+  }
+
+  function undo() {
+    const [previous, ...rest] = history;
+
+    if (!previous) {
+      return;
+    }
+
+    setBoard(previous.board);
+    setTurn(previous.turn);
+    setForcedPiece(previous.forcedPiece);
+    setWinner(previous.winner);
+    setMoveLog(previous.moveLog);
+    setClocks(previous.clocks);
+    setPlayedMoves((current) => current.slice(0, -1));
+    setLastMove(previous.lastMove);
+    setHistory(rest);
+    setSelected(null);
+    savedMatchKeyRef.current = null;
+  }
+
+  function handleModeChange(nextMode: GameMode) {
+    setMode(nextMode);
+    restart();
+  }
+
+  function handleTimeControlChange(nextTimeControl: TimeControl) {
+    setTimeControl(nextTimeControl);
+    resetGame(nextTimeControl);
   }
 
   return (
     <div className="play-layout">
       <section className="game-column" aria-label="Game board">
         <div className="match-strip">
-          <TimerBox label="Red" time="05:00" active={turn === "red"} />
-          <div className="turn-box">{turn === "red" ? "Red to move" : "Black to move"}</div>
-          <TimerBox label="Black AI" time="05:00" active={turn === "black"} />
+          <TimerBox
+            label="Red"
+            time={formatClock(clocks.red)}
+            active={turn === "red" && !winner}
+          />
+          <div className="turn-box">
+            {winner
+              ? `${winner === "red" ? "Red" : "Black"} wins`
+              : forcedPiece
+                ? "Capture chain"
+                : isAiThinking
+                  ? "Black AI thinking"
+                  : turn === "red"
+                    ? "Red to move"
+                    : "Black to move"}
+          </div>
+          <TimerBox
+            label={mode === "ai" ? "Black AI" : "Black"}
+            time={formatClock(clocks.black)}
+            active={turn === "black" && !winner}
+          />
         </div>
 
         <div className="board" role="grid" aria-label="Checkers board">
@@ -82,6 +336,9 @@ export function PlayScreen() {
                 (move) => squareKey(move.to) === key,
               );
               const isSelected = selected && squareKey(selected) === key;
+              const isLastMove =
+                lastMove &&
+                (squareKey(lastMove.from) === key || squareKey(lastMove.to) === key);
 
               return (
                 <button
@@ -90,6 +347,7 @@ export function PlayScreen() {
                     "square",
                     (rowIndex + colIndex) % 2 === 0 ? "light" : "dark",
                     isSelected ? "selected" : "",
+                    isLastMove ? "last-move" : "",
                     legalMove ? (legalMove.captured?.length ? "capture" : "legal") : "",
                   ]
                     .filter(Boolean)
@@ -113,7 +371,12 @@ export function PlayScreen() {
             <RotateCcw size={18} />
             Restart
           </button>
-          <button className="button" disabled type="button">
+          <button
+            className="button"
+            disabled={history.length === 0 || isAiThinking}
+            onClick={undo}
+            type="button"
+          >
             <StepBack size={18} />
             Undo
           </button>
@@ -126,14 +389,21 @@ export function PlayScreen() {
           <div className="settings-grid">
             <label className="field">
               <span>Mode</span>
-              <select defaultValue="ai">
+              <select
+                onChange={(event) => handleModeChange(event.target.value as GameMode)}
+                value={mode}
+              >
                 <option value="ai">Vs AI</option>
                 <option value="local">Local two-player</option>
               </select>
             </label>
             <label className="field">
               <span>AI level</span>
-              <select defaultValue="challenger">
+              <select
+                disabled={mode !== "ai"}
+                onChange={(event) => setDifficulty(event.target.value as AiDifficulty)}
+                value={difficulty}
+              >
                 <option value="rookie">Rookie</option>
                 <option value="challenger">Challenger</option>
                 <option value="master">Master</option>
@@ -141,7 +411,12 @@ export function PlayScreen() {
             </label>
             <label className="field">
               <span>Time control</span>
-              <select defaultValue="blitz">
+              <select
+                onChange={(event) =>
+                  handleTimeControlChange(event.target.value as TimeControl)
+                }
+                value={timeControl}
+              >
                 <option value="bullet">Bullet 1+0</option>
                 <option value="blitz">Blitz 5+0</option>
                 <option value="rapid">Rapid 10+0</option>
@@ -151,12 +426,21 @@ export function PlayScreen() {
         </section>
 
         <section className="panel-section">
+          <h2>Friend room</h2>
+          <p className="muted-line">Create an invite link and claim seats through Supabase.</p>
+          <a className="button" href="/room">
+            <Link2 size={18} />
+            Open room
+          </a>
+        </section>
+
+        <section className="panel-section">
           <h2>Moves</h2>
           <div className="move-list">
-            {moves.length ? (
-              moves.map((move, index) => (
+            {moveLog.length ? (
+              moveLog.map((move, index) => (
                 <div key={`${move}-${index}`}>
-                  <span>{moves.length - index}</span>
+                  <span>{moveLog.length - index}</span>
                   <p>{move}</p>
                 </div>
               ))
@@ -171,14 +455,55 @@ export function PlayScreen() {
 
         <section className="panel-section">
           <h2>Coach</h2>
-          <p className="coach-note">
-            Develop pieces toward the center before chasing edge trades. Captures are
-            enforced when available.
-          </p>
+          {coachSummary ? (
+            <div className="coach-report">
+              <div>
+                <strong>{coachSummary.accuracy}%</strong>
+                <span>accuracy</span>
+              </div>
+              <p>{coachSummary.headline}</p>
+              <p>{coachSummary.keyMoment}</p>
+              <p>{coachSummary.improvement}</p>
+            </div>
+          ) : (
+            <p className="coach-note">
+              {forcedPiece
+                ? "Continue the capture chain with the same piece."
+                : legalMoves.some((move) => move.captured?.length)
+                  ? "A capture is available and must be played."
+                  : "Develop pieces toward the center before chasing edge trades."}
+            </p>
+          )}
+          <p className="muted-line">{displayedSaveStatus}</p>
         </section>
+
+        <ProfileSummary
+          error={profileError}
+          loading={profileLoading}
+          profile={profile}
+        />
+        <RecentMatchesPanel
+          profileId={profile?.id}
+          refreshKey={matchHistoryKey}
+        />
+        <LeaderboardPanel currentProfileId={profile?.id} />
       </aside>
     </div>
   );
+}
+
+function createClocks(timeControl: TimeControl): PlayerClocks {
+  return {
+    red: timeControlSeconds[timeControl],
+    black: timeControlSeconds[timeControl],
+  };
+}
+
+function formatClock(seconds: number) {
+  const minutes = Math.floor(seconds / 60);
+  const remainingSeconds = seconds % 60;
+
+  return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
 }
 
 function TimerBox({

@@ -18,3 +18,5 @@ export type Move = {
   captured?: Square[];
   promoted?: boolean;
 };
+
+export type GameWinner = Player | "draw" | null;

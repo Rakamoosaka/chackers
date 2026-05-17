@@ -1,15 +1,16 @@
 import { BarChart3, Crown, Eye, Puzzle, User, Users } from "lucide-react";
 
 const navItems = [
-  { label: "Play", icon: Crown, current: true },
-  { label: "Puzzle", icon: Puzzle },
-  { label: "Leaderboard", icon: BarChart3 },
-  { label: "Watch", icon: Eye },
-  { label: "Profile", icon: User },
-  { label: "Pro", icon: Users },
+  { label: "Play", href: "/", icon: Crown },
+  { label: "Puzzle", href: "/puzzle", icon: Puzzle },
+  { label: "Leaderboard", href: "/leaderboard", icon: BarChart3 },
+  { label: "Room", href: "/room", icon: Users },
+  { label: "Watch", href: "/watch", icon: Eye },
+  { label: "Profile", href: "/profile", icon: User },
+  { label: "Pro", href: "/pro", icon: Crown },
 ];
 
-export function AppNav() {
+export function AppNav({ current = "Play" }: { current?: string }) {
   return (
     <nav className="app-nav" aria-label="Primary navigation">
       <div className="brand">
@@ -22,9 +23,9 @@ export function AppNav() {
 
           return (
             <a
-              aria-current={item.current ? "page" : undefined}
+              aria-current={item.label === current ? "page" : undefined}
               className="nav-item"
-              href="#"
+              href={item.href}
               key={item.label}
             >
               <Icon aria-hidden="true" size={18} />

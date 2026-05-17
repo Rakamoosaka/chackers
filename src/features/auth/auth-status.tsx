@@ -2,9 +2,11 @@
 
 import { FormEvent, useMemo, useState } from "react";
 import { hasSupabaseConfig, supabase } from "@/lib/supabase/client";
+import { useProfile } from "@/features/profile/use-profile";
 
 export function AuthStatus() {
   const ready = useMemo(() => hasSupabaseConfig(), []);
+  const { user, profile } = useProfile();
   const [email, setEmail] = useState("");
   const [message, setMessage] = useState(
     ready ? "Enter email for magic link" : "Add .env.local keys",
@@ -30,14 +32,26 @@ export function AuthStatus() {
     setIsSubmitting(false);
   }
 
+  async function handleSignOut() {
+    await supabase?.auth.signOut();
+    setEmail("");
+    setMessage("Signed out");
+  }
+
   return (
     <form className="auth-status" onSubmit={handleSubmit}>
       <span className={ready ? "auth-dot ready" : "auth-dot"} aria-hidden="true" />
       <div>
-        <strong>{ready ? "Supabase ready" : "Local setup"}</strong>
+        <strong>
+          {profile?.name ?? (ready ? "Supabase ready" : "Local setup")}
+        </strong>
         <p aria-live="polite">{message}</p>
       </div>
-      {ready ? (
+      {ready && user ? (
+        <button className="button" onClick={handleSignOut} type="button">
+          Sign out
+        </button>
+      ) : ready ? (
         <>
           <input
             aria-label="Email address"
