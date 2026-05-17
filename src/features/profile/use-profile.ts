@@ -54,9 +54,24 @@ export function useProfile(): ProfileState {
       return;
     }
 
-    supabase.auth.getUser().then(({ data }) => {
+    async function loadInitialSession() {
+      if (!supabase) {
+        return;
+      }
+
+      const params = new URLSearchParams(window.location.search);
+      const code = params.get("code");
+
+      if (code) {
+        await supabase.auth.exchangeCodeForSession(code);
+        window.history.replaceState(null, "", window.location.pathname);
+      }
+
+      const { data } = await supabase.auth.getUser();
       void loadProfile(data.user);
-    });
+    }
+
+    void loadInitialSession();
 
     const {
       data: { subscription },

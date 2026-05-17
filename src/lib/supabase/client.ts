@@ -9,5 +9,11 @@ export function hasSupabaseConfig() {
 }
 
 export const supabase = hasSupabaseConfig()
-  ? createClient<Database>(supabaseUrl as string, supabaseAnonKey as string)
+  ? createClient<Database>(supabaseUrl as string, supabaseAnonKey as string, {
+      auth: {
+        autoRefreshToken: true,
+        detectSessionInUrl: true,
+        persistSession: true,
+      },
+    })
   : null;

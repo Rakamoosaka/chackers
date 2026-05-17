@@ -51,10 +51,14 @@ Create `.env.local`:
 
 ```bash
 NEXT_PUBLIC_SUPABASE_URL=your-supabase-project-url
+NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY=your-supabase-publishable-key
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 ```
 
 Apply the database schema in `supabase/schema.sql` through the Supabase SQL editor.
+Optionally run `supabase/seed.sql` to populate demo leaderboard rows.
+
+For local auth testing, Supabase magic-link emails can hit rate limits. The app also supports email/password auth. In Supabase Dashboard, enable the Email provider; for immediate local sign-up, disable email confirmation while developing.
 
 ## Scripts
 
@@ -132,3 +136,4 @@ Recommended:
 - Supabase for Auth, Postgres, and Realtime.
 - Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel environment variables.
 - Run `supabase/schema.sql` before testing backend-backed flows.
+- Run `supabase/seed.sql` if you want demo leaderboard rows in the database.

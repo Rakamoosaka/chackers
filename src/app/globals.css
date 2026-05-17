@@ -696,6 +696,13 @@ h2 {
   width: 180px;
 }
 
+.auth-status select {
+  border: 1px solid var(--border);
+  min-height: 36px;
+  padding: 6px 8px;
+  width: 132px;
+}
+
 .auth-dot {
   background: var(--danger);
   height: 10px;
@@ -758,6 +765,10 @@ h2 {
   }
 
   .auth-status input {
+    width: 100%;
+  }
+
+  .auth-status select {
     width: 100%;
   }
 
