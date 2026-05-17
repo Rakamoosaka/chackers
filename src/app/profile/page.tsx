@@ -6,12 +6,6 @@ export default function ProfilePage() {
     <main className="app-shell">
       <AppNav current="Profile" />
       <section className="app-main" aria-label="Chackers profile screen">
-        <div className="top-bar">
-          <div>
-            <h1>Profile</h1>
-            <p>Rating, history, and puzzle streak</p>
-          </div>
-        </div>
         <ProfileScreen />
       </section>
     </main>

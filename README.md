@@ -59,7 +59,7 @@ NEXT_PUBLIC_SUPABASE_ANON_KEY=your-supabase-anon-key
 Apply the database schema in `supabase/schema.sql` through the Supabase SQL editor.
 Optionally run `supabase/seed.sql` to populate demo leaderboard rows.
 
-For local auth testing, Supabase magic-link emails can hit rate limits. The app also supports email/password auth. In Supabase Dashboard, enable the Email provider; for immediate local sign-up, disable email confirmation while developing.
+For local auth testing, use email and password from the app sidebar. In Supabase Dashboard, enable the Email provider; for immediate local sign-up, disable email confirmation while developing.
 
 ## Scripts
 

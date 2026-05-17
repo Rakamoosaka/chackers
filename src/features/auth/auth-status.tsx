@@ -4,57 +4,60 @@ import { FormEvent, useMemo, useState } from "react";
 import { hasSupabaseConfig, supabase } from "@/lib/supabase/client";
 import { useProfile } from "@/features/profile/use-profile";
 
-type AuthMode = "magic" | "password";
 type PasswordAction = "signin" | "signup";
+type AuthModal = PasswordAction | null;
 
 export function AuthStatus() {
   const ready = useMemo(() => hasSupabaseConfig(), []);
   const { user, profile } = useProfile();
-  const [mode, setMode] = useState<AuthMode>("magic");
-  const [passwordAction, setPasswordAction] =
-    useState<PasswordAction>("signin");
+  const [activeModal, setActiveModal] = useState<AuthModal>(null);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState(
-    ready ? "Enter email for magic link" : "Add .env.local keys",
+    ready ? "Log in or sign up" : "Add .env.local keys",
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  async function handleSubmit(event: FormEvent<HTMLFormElement>) {
-    event.preventDefault();
+  function openAuthModal(action: PasswordAction) {
+    setActiveModal(action);
+    setMessage(action === "signin" ? "Log in with password" : "Create account");
+  }
 
-    if (!supabase || !email) {
+  function closeAuthModal() {
+    if (isSubmitting) {
       return;
     }
 
-    setIsSubmitting(true);
+    setActiveModal(null);
+    setPassword("");
+  }
 
-    if (mode === "magic") {
-      const { error } = await supabase.auth.signInWithOtp({
-        email,
-        options: {
-          emailRedirectTo: window.location.href,
-        },
-      });
+  async function handleSubmit(
+    event: FormEvent<HTMLFormElement>,
+    action: PasswordAction,
+  ) {
+    event.preventDefault();
 
-      setMessage(error ? error.message : "Check your email");
-      setIsSubmitting(false);
+    if (!supabase || !email || !password) {
+      setMessage("Enter email and password");
       return;
     }
 
     if (password.length < 6) {
       setMessage("Password must be at least 6 characters");
-      setIsSubmitting(false);
       return;
     }
 
-    if (passwordAction === "signin") {
+    setIsSubmitting(true);
+
+    if (action === "signin") {
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       setMessage(error ? error.message : "Signed in");
+      setActiveModal(error ? action : null);
       setIsSubmitting(false);
       return;
     }
@@ -62,9 +65,6 @@ export function AuthStatus() {
     const { data, error } = await supabase.auth.signUp({
       email,
       password,
-      options: {
-        emailRedirectTo: window.location.href,
-      },
     });
 
     setMessage(
@@ -72,17 +72,9 @@ export function AuthStatus() {
         ? error.message
         : data.session
           ? "Account created"
-          : "Account created. Check email if confirmation is enabled.",
+          : "Account created. Check email to confirm your account.",
     );
-
-    if (!error && !data.session) {
-      const { error: signInError } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      });
-
-      setMessage(signInError ? signInError.message : "Account created and signed in");
-    }
+    setActiveModal(error ? action : null);
     setIsSubmitting(false);
   }
 
@@ -94,7 +86,7 @@ export function AuthStatus() {
   }
 
   return (
-    <form className="auth-status" onSubmit={handleSubmit}>
+    <div className="auth-status">
       <div className="auth-summary">
         <span className={ready ? "auth-dot ready" : "auth-dot"} aria-hidden="true" />
         <div>
@@ -109,56 +101,76 @@ export function AuthStatus() {
           Sign out
         </button>
       ) : ready ? (
-        <>
-          <select
-            aria-label="Sign-in method"
-            onChange={(event) => {
-              const nextMode = event.target.value as AuthMode;
-              setMode(nextMode);
-              setMessage(
-                nextMode === "magic"
-                  ? "Enter email for magic link"
-                  : "Enter email and password",
-              );
-            }}
-            value={mode}
+        <div className="auth-actions">
+          <button
+            className="button primary"
+            onClick={() => openAuthModal("signin")}
+            type="button"
           >
-            <option value="magic">Magic link</option>
-            <option value="password">Password</option>
-          </select>
-          <input
-            aria-label="Email address"
-            onChange={(event) => setEmail(event.target.value)}
-            placeholder="you@example.com"
-            type="email"
-            value={email}
-          />
-          {mode === "password" ? (
-            <>
-              <select
-                aria-label="Password action"
-                onChange={(event) =>
-                  setPasswordAction(event.target.value as PasswordAction)
-                }
-                value={passwordAction}
+            Log in
+          </button>
+          <button
+            className="button"
+            onClick={() => openAuthModal("signup")}
+            type="button"
+          >
+            Sign up
+          </button>
+        </div>
+      ) : null}
+      {activeModal ? (
+        <div className="auth-modal-backdrop" role="presentation">
+          <form
+            aria-labelledby="auth-modal-title"
+            aria-modal="true"
+            className="auth-dialog"
+            onSubmit={(event) => handleSubmit(event, activeModal)}
+            role="dialog"
+          >
+            <div className="auth-dialog-head">
+              <h2 id="auth-modal-title">
+                {activeModal === "signin" ? "Log in" : "Sign up"}
+              </h2>
+              <button
+                aria-label="Close auth modal"
+                className="button"
+                disabled={isSubmitting}
+                onClick={closeAuthModal}
+                type="button"
               >
-                <option value="signin">Sign in</option>
-                <option value="signup">Create</option>
-              </select>
+                Close
+              </button>
+            </div>
+            <label className="field">
+              <span>Email</span>
               <input
-                aria-label="Password"
+                autoFocus
+                onChange={(event) => setEmail(event.target.value)}
+                placeholder="you@example.com"
+                type="email"
+                value={email}
+              />
+            </label>
+            <label className="field">
+              <span>Password</span>
+              <input
                 onChange={(event) => setPassword(event.target.value)}
                 placeholder="password"
                 type="password"
                 value={password}
               />
-            </>
-          ) : null}
-          <button className="button primary" disabled={isSubmitting} type="submit">
-            {isSubmitting ? "Working" : "Sign in"}
-          </button>
-        </>
+            </label>
+            <p className="muted-line" aria-live="polite">{message}</p>
+            <button className="button primary" disabled={isSubmitting} type="submit">
+              {isSubmitting
+                ? "Working"
+                : activeModal === "signin"
+                  ? "Log in"
+                  : "Sign up"}
+            </button>
+          </form>
+        </div>
       ) : null}
-    </form>
+    </div>
   );
 }

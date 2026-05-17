@@ -6,12 +6,6 @@ export default function ProPage() {
     <main className="app-shell">
       <AppNav current="Pro" />
       <section className="app-main" aria-label="Chackers pro screen">
-        <div className="top-bar">
-          <div>
-            <h1>Pro</h1>
-            <p>Coach, analytics, and skins roadmap</p>
-          </div>
-        </div>
         <ProScreen />
       </section>
     </main>

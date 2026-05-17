@@ -2,7 +2,6 @@
 
 import { Flag, Link2, RotateCcw, StepBack } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { LeaderboardPanel } from "@/features/leaderboard/leaderboard-panel";
 import { ProfileSummary } from "@/features/profile/profile-summary";
 import { useProfile } from "@/features/profile/use-profile";
 import { analyzeGame } from "./coach/analyze-game";
@@ -21,7 +20,6 @@ import {
   saveCompletedMatch,
   type PlayedMove,
 } from "./storage/match-service";
-import { RecentMatchesPanel } from "./storage/recent-matches-panel";
 import type { TimeControl } from "@/types/database";
 
 type GameMode = "ai" | "local";
@@ -63,7 +61,6 @@ export function PlayScreen() {
   const [winner, setWinner] = useState<GameWinner>(null);
   const [matchStarted, setMatchStarted] = useState(false);
   const [saveStatus, setSaveStatus] = useState("Sign in to save games.");
-  const [matchHistoryKey, setMatchHistoryKey] = useState(0);
   const savedMatchKeyRef = useRef<string | null>(null);
   const { profile, loading: profileLoading, error: profileError, refreshProfile } =
     useProfile();
@@ -176,7 +173,6 @@ export function PlayScreen() {
         });
 
         setSaveStatus("Match saved");
-        setMatchHistoryKey((current) => current + 1);
         void refreshProfile();
       } catch (error) {
         savedMatchKeyRef.current = null;
@@ -549,11 +545,6 @@ export function PlayScreen() {
           loading={profileLoading}
           profile={profile}
         />
-        <RecentMatchesPanel
-          profileId={profile?.id}
-          refreshKey={matchHistoryKey}
-        />
-        <LeaderboardPanel currentProfileId={profile?.id} />
       </aside>
     </div>
   );

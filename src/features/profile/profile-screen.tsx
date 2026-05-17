@@ -32,7 +32,7 @@ export function ProfileScreen() {
         <section className="game-column">
           <h2>Sign in required</h2>
           <p className="coach-note">
-            Use the email magic link in the top bar to create your profile, save games, and build a puzzle streak.
+            Log in or sign up in the top bar to create your profile, save games, and build a puzzle streak.
           </p>
         </section>
       </div>

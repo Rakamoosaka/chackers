@@ -113,7 +113,7 @@ export function SetupScreen() {
         <section className="panel-section">
           <h2>Auth testing</h2>
           <p className="muted-line">
-            Magic links can rate-limit during testing. Use password mode in the top bar when email cooldown blocks new links.
+            Use the sidebar email and password form. Enable the Email provider in Supabase Auth before testing sign-up.
           </p>
         </section>
       </aside>

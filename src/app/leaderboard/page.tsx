@@ -6,12 +6,6 @@ export default function LeaderboardPage() {
     <main className="app-shell">
       <AppNav current="Leaderboard" />
       <section className="app-main" aria-label="Chackers leaderboard screen">
-        <div className="top-bar">
-          <div>
-            <h1>Leaderboard</h1>
-            <p>Global and city rankings</p>
-          </div>
-        </div>
         <LeaderboardScreen />
       </section>
     </main>

@@ -31,6 +31,7 @@ body {
   background: var(--background);
   color: var(--text);
   font-family: "JetBrains Mono", "SFMono-Regular", Consolas, monospace;
+  overflow: hidden;
 }
 
 button,
@@ -50,7 +51,8 @@ button:disabled {
 .app-shell {
   display: grid;
   grid-template-columns: 232px minmax(0, 1fr);
-  min-height: 100vh;
+  height: 100vh;
+  overflow: hidden;
 }
 
 .app-nav {
@@ -58,6 +60,8 @@ button:disabled {
   background: var(--surface);
   display: flex;
   flex-direction: column;
+  min-height: 0;
+  overflow: hidden;
   padding: 20px 16px;
 }
 
@@ -75,7 +79,6 @@ button:disabled {
 }
 
 .brand span,
-.top-bar p,
 .timer-label,
 .panel-label,
 .move-list span,
@@ -110,20 +113,17 @@ button:disabled {
 }
 
 .sidebar-auth {
-  margin-top: 24px;
+  margin-top: auto;
+  padding-top: 24px;
 }
 
 .app-main {
-  min-width: 0;
-  padding: 24px;
-}
-
-.top-bar {
-  align-items: center;
   display: flex;
-  justify-content: space-between;
-  gap: 16px;
-  margin-bottom: 20px;
+  flex-direction: column;
+  height: 100vh;
+  min-width: 0;
+  overflow: hidden;
+  padding: 24px;
 }
 
 h1,
@@ -131,13 +131,6 @@ h2,
 h3,
 p {
   margin: 0;
-}
-
-h1 {
-  font-family: VT323, "JetBrains Mono", monospace;
-  font-size: 35px;
-  font-weight: 400;
-  line-height: 1;
 }
 
 h2 {
@@ -154,8 +147,10 @@ h2 {
 .setup-page {
   align-items: start;
   display: grid;
+  flex: 1 1 auto;
   gap: 20px;
   grid-template-columns: minmax(320px, 680px) minmax(280px, 380px);
+  min-height: 0;
 }
 
 .game-column,
@@ -166,7 +161,17 @@ h2 {
 }
 
 .game-column {
+  min-height: 0;
   padding: 16px;
+}
+
+.play-layout .game-column {
+  display: grid;
+  grid-template-rows: auto minmax(0, 1fr) auto;
+}
+
+.play-layout {
+  align-items: stretch;
 }
 
 .match-strip {
@@ -205,7 +210,10 @@ h2 {
   border: 2px solid var(--text);
   display: grid;
   grid-template-columns: repeat(8, 1fr);
-  width: 100%;
+  align-self: center;
+  justify-self: center;
+  max-width: 100%;
+  width: min(100%, calc(100vh - 240px));
 }
 
 .square {
@@ -325,6 +333,9 @@ h2 {
 .context-panel {
   display: grid;
   gap: 16px;
+  max-height: 100%;
+  min-height: 0;
+  overflow: auto;
   padding: 16px;
 }
 
@@ -763,11 +774,49 @@ h2 {
   grid-template-columns: 10px minmax(0, 1fr);
 }
 
-.auth-status input {
+.auth-status input,
+.auth-dialog input {
   border: 1px solid var(--border);
   min-height: 36px;
   padding: 6px 8px;
   width: 100%;
+}
+
+.auth-actions {
+  display: grid;
+  gap: 8px;
+}
+
+.auth-actions .button {
+  justify-content: center;
+}
+
+.auth-modal-backdrop {
+  align-items: center;
+  background: rgba(17, 24, 39, 0.44);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 20;
+}
+
+.auth-dialog {
+  background: var(--surface);
+  border: 1px solid var(--text);
+  display: grid;
+  gap: 12px;
+  max-width: 360px;
+  padding: 16px;
+  width: 100%;
+}
+
+.auth-dialog-head {
+  align-items: center;
+  display: flex;
+  gap: 12px;
+  justify-content: space-between;
 }
 
 .auth-status select {
@@ -788,14 +837,21 @@ h2 {
 }
 
 @media (max-width: 920px) {
+  body {
+    overflow: auto;
+  }
+
   .app-shell {
     display: block;
+    height: auto;
+    overflow: visible;
   }
 
   .app-nav {
     border-bottom: 1px solid var(--border);
     border-right: 0;
     display: block;
+    overflow: visible;
     padding: 12px;
   }
 
@@ -814,9 +870,13 @@ h2 {
 
   .sidebar-auth {
     margin-top: 12px;
+    padding-top: 0;
   }
 
   .app-main {
+    display: block;
+    height: auto;
+    overflow: visible;
     padding: 16px;
   }
 
@@ -828,16 +888,27 @@ h2 {
   .watch-page,
   .pro-page,
   .setup-page {
+    flex: none;
     grid-template-columns: 1fr;
+    min-height: 0;
+  }
+
+  .play-layout .game-column {
+    display: block;
+  }
+
+  .board {
+    height: auto;
+    width: 100%;
+  }
+
+  .context-panel {
+    max-height: none;
+    overflow: visible;
   }
 }
 
 @media (max-width: 560px) {
-  .top-bar {
-    align-items: flex-start;
-    display: grid;
-  }
-
   .match-strip {
     grid-template-columns: 1fr;
   }

@@ -6,12 +6,6 @@ export default function RoomPage() {
     <main className="app-shell">
       <AppNav current="Room" />
       <section className="app-main" aria-label="Chackers room screen">
-        <div className="top-bar">
-          <div>
-            <h1>Friend Room</h1>
-            <p>Create an invite link and claim seats</p>
-          </div>
-        </div>
         <RoomScreen />
       </section>
     </main>
