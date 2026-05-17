@@ -6,6 +6,7 @@ import type { Profile } from "@/features/profile/profile-service";
 
 export type Room = Database["public"]["Tables"]["rooms"]["Row"];
 export type RoomPlayer = Database["public"]["Tables"]["room_players"]["Row"];
+export type RoomMessage = Database["public"]["Tables"]["room_messages"]["Row"];
 
 export type RoomSnapshot = {
   room: Room;
@@ -161,6 +162,62 @@ export function getPlayerForSeat(
   seat: PlayerColor,
 ) {
   return players.find((player) => player.seat === seat);
+}
+
+export async function getRoomMessages(roomId: string) {
+  if (!supabase) {
+    return [];
+  }
+
+  const { data, error } = await supabase
+    .from("room_messages")
+    .select("*")
+    .eq("room_id", roomId)
+    .order("created_at", { ascending: true })
+    .limit(30);
+
+  if (error) {
+    throw error;
+  }
+
+  return data ?? [];
+}
+
+export async function sendRoomMessage({
+  room,
+  profile,
+  body,
+}: {
+  room: Room;
+  profile: Profile | null;
+  body: string;
+}) {
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const trimmedBody = body.trim();
+
+  if (!trimmedBody) {
+    return null;
+  }
+
+  const { data, error } = await supabase
+    .from("room_messages")
+    .insert({
+      room_id: room.id,
+      user_id: profile?.id ?? null,
+      display_name: profile?.name ?? "Spectator",
+      body: trimmedBody,
+    })
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
 }
 
 function createRoomCode() {

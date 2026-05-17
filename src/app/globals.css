@@ -418,6 +418,28 @@ h2 {
   display: grid;
 }
 
+.room-chat-list {
+  max-height: 180px;
+  overflow: auto;
+}
+
+.room-chat-list > .muted-line {
+  padding: 10px;
+}
+
+.room-chat-form {
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 1fr auto;
+}
+
+.room-chat-form input {
+  border: 1px solid var(--border);
+  min-height: 40px;
+  min-width: 0;
+  padding: 6px 8px;
+}
+
 .chat-line,
 .pro-feature,
 .skin-row {
@@ -778,7 +800,8 @@ h2 {
 
   .room-hero,
   .room-join-row,
-  .room-link-line {
+  .room-link-line,
+  .room-chat-form {
     align-items: stretch;
     display: grid;
   }

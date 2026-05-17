@@ -17,9 +17,12 @@ import {
   createRoom,
   getPlayerForSeat,
   getRoomByCode,
+  getRoomMessages,
   getRoomPlayers,
   joinRoomAsBlack,
+  sendRoomMessage,
   updateRoomBoard,
+  type RoomMessage,
   type RoomSnapshot,
 } from "./room-service";
 
@@ -39,6 +42,8 @@ type RoomAction =
 export function RoomScreen() {
   const { profile, loading: profileLoading } = useProfile();
   const [joinCode, setJoinCode] = useState(() => getInitialJoinCode());
+  const [messageBody, setMessageBody] = useState("");
+  const [messages, setMessages] = useState<RoomMessage[]>([]);
   const [selected, setSelected] = useState<Square | null>(null);
   const [forcedPiece, setForcedPiece] = useState<Square | null>(null);
   const [{ snapshot, status, error, loading }, dispatch] = useReducer(
@@ -145,12 +150,51 @@ export function RoomScreen() {
           });
         },
       )
+      .on(
+        "postgres_changes",
+        {
+          event: "INSERT",
+          schema: "public",
+          table: "room_messages",
+          filter: `room_id=eq.${roomId}`,
+        },
+        (payload) => {
+          setMessages((current) => [
+            ...current,
+            payload.new as RoomMessage,
+          ].slice(-30));
+        },
+      )
       .subscribe();
 
     return () => {
       void client.removeChannel(channel);
     };
   }, [snapshot]);
+
+  useEffect(() => {
+    if (!snapshot?.room.id) {
+      return;
+    }
+
+    let active = true;
+
+    getRoomMessages(snapshot.room.id)
+      .then((nextMessages) => {
+        if (active) {
+          setMessages(nextMessages);
+        }
+      })
+      .catch(() => {
+        if (active) {
+          setMessages([]);
+        }
+      });
+
+    return () => {
+      active = false;
+    };
+  }, [snapshot?.room.id]);
 
   async function handleCreateRoom() {
     if (!profile) {
@@ -220,6 +264,40 @@ export function RoomScreen() {
 
     await navigator.clipboard.writeText(inviteLink);
     dispatch({ type: "status", status: "Invite link copied." });
+  }
+
+  async function handleSendMessage() {
+    if (!snapshot || !messageBody.trim()) {
+      return;
+    }
+
+    try {
+      const message = await sendRoomMessage({
+        room: snapshot.room,
+        profile,
+        body: messageBody,
+      });
+
+      setMessageBody("");
+
+      if (message) {
+        setMessages((current) => {
+          if (current.some((item) => item.id === message.id)) {
+            return current;
+          }
+
+          return [...current, message].slice(-30);
+        });
+      }
+    } catch (roomError) {
+      dispatch({
+        type: "failed",
+        message:
+          roomError instanceof Error
+            ? roomError.message
+            : "Could not send message.",
+      });
+    }
   }
 
   async function handleSquareClick(square: Square) {
@@ -304,6 +382,7 @@ export function RoomScreen() {
   const blackPlayer = snapshot
     ? getPlayerForSeat(snapshot.players, "black")
     : undefined;
+  const visibleMessages = snapshot ? messages : [];
 
   return (
     <div className="room-page">
@@ -446,6 +525,44 @@ export function RoomScreen() {
             <RefreshCw size={18} />
             Refresh room
           </button>
+        </section>
+        <section className="panel-section">
+          <h2>Room chat</h2>
+          <div className="chat-list room-chat-list">
+            {visibleMessages.length ? (
+              visibleMessages.map((message) => (
+                <div className="chat-line" key={message.id}>
+                  <p>
+                    <strong>{message.display_name}</strong> {message.body}
+                  </p>
+                </div>
+              ))
+            ) : (
+              <p className="muted-line">No room messages yet.</p>
+            )}
+          </div>
+          <div className="room-chat-form">
+            <input
+              aria-label="Room message"
+              disabled={!snapshot}
+              onChange={(event) => setMessageBody(event.target.value)}
+              onKeyDown={(event) => {
+                if (event.key === "Enter") {
+                  void handleSendMessage();
+                }
+              }}
+              placeholder="Message"
+              value={messageBody}
+            />
+            <button
+              className="button"
+              disabled={!snapshot || !messageBody.trim()}
+              onClick={handleSendMessage}
+              type="button"
+            >
+              Send
+            </button>
+          </div>
         </section>
       </aside>
     </div>
