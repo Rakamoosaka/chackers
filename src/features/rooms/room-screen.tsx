@@ -1,7 +1,7 @@
 "use client";
 
 import { Copy, Flag, Link2, RefreshCw, UserPlus } from "lucide-react";
-import { useEffect, useMemo, useReducer, useState } from "react";
+import { useEffect, useMemo, useReducer, useRef, useState } from "react";
 import {
   applyMoveWithMetadata,
   formatSquare,
@@ -56,6 +56,10 @@ export function RoomScreen() {
       loading: false,
     },
   );
+  const snapshotRef = useRef(snapshot);
+  useEffect(() => {
+    snapshotRef.current = snapshot;
+  }, [snapshot]);
 
   const inviteLink = useMemo(() => {
     if (!snapshot || typeof window === "undefined") {
@@ -128,7 +132,7 @@ export function RoomScreen() {
             type: "loaded",
             snapshot: {
               room: payload.new as RoomSnapshot["room"],
-              players: snapshot.players,
+              players: snapshotRef.current?.players ?? [],
             },
             status: "Board synced.",
           });
@@ -144,9 +148,11 @@ export function RoomScreen() {
         },
         async () => {
           const players = await getRoomPlayers(roomId);
+          const currentRoom = snapshotRef.current?.room;
+          if (!currentRoom) return;
           dispatch({
             type: "loaded",
-            snapshot: { room: snapshot.room, players },
+            snapshot: { room: currentRoom, players },
             status: "Room updated.",
           });
         },
@@ -171,7 +177,7 @@ export function RoomScreen() {
     return () => {
       void client.removeChannel(channel);
     };
-  }, [snapshot]);
+  }, [snapshot?.room.id]);
 
   useEffect(() => {
     if (!snapshot?.room.id) {

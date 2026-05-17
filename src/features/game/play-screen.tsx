@@ -448,51 +448,6 @@ export function PlayScreen() {
   }, [roomSnapshot?.room.id]);
 
   useEffect(() => {
-    if (mode !== "friend" || !roomSnapshot?.room.code) {
-      return;
-    }
-
-    let active = true;
-    const timer = window.setInterval(() => {
-      getRoomByCode(roomSnapshot.room.code)
-        .then((nextSnapshot) => {
-          if (!active) {
-            return;
-          }
-
-          const nextBoard = parseRoomBoard(nextSnapshot.room.board_state);
-          const hasRed = Boolean(getPlayerForSeat(nextSnapshot.players, "red"));
-          const hasBlack = Boolean(getPlayerForSeat(nextSnapshot.players, "black"));
-
-          setRoomSnapshot(nextSnapshot);
-          if (nextBoard.length) {
-            setBoard(nextBoard);
-          }
-          setTurn(nextSnapshot.room.turn);
-          setMatchStarted(nextSnapshot.room.status === "active");
-
-          if (nextSnapshot.room.status === "finished") {
-            setRoomStatus("Room finished.");
-          } else if (hasRed && hasBlack) {
-            setRoomStatus("Both players joined. Red moves first.");
-          } else {
-            setRoomStatus("Waiting for friend to join.");
-          }
-        })
-        .catch(() => {
-          if (active) {
-            setRoomStatus("Could not refresh invite status.");
-          }
-        });
-    }, 2000);
-
-    return () => {
-      active = false;
-      window.clearInterval(timer);
-    };
-  }, [mode, roomSnapshot?.room.code]);
-
-  useEffect(() => {
     if (!isAiThinking) {
       return;
     }
