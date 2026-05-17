@@ -133,6 +133,23 @@ grant insert on public.room_messages to anon, authenticated;
 
 grant usage, select on all sequences in schema public to authenticated;
 
+drop policy if exists "profiles are readable" on public.profiles;
+drop policy if exists "users update own profile" on public.profiles;
+drop policy if exists "users manage own matches" on public.matches;
+drop policy if exists "users read own match moves" on public.match_moves;
+drop policy if exists "users insert own match moves" on public.match_moves;
+drop policy if exists "leaderboard is public read" on public.leaderboard_entries;
+drop policy if exists "users upsert own leaderboard row" on public.leaderboard_entries;
+drop policy if exists "users manage own puzzle progress" on public.puzzle_progress;
+drop policy if exists "rooms are readable" on public.rooms;
+drop policy if exists "authenticated users create rooms" on public.rooms;
+drop policy if exists "hosts update rooms" on public.rooms;
+drop policy if exists "room players update rooms" on public.rooms;
+drop policy if exists "room players are readable" on public.room_players;
+drop policy if exists "authenticated users join rooms" on public.room_players;
+drop policy if exists "room messages are readable" on public.room_messages;
+drop policy if exists "authenticated users send room messages" on public.room_messages;
+
 create policy "profiles are readable" on public.profiles
   for select using (true);
 
