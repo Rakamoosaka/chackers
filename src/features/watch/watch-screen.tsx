@@ -86,7 +86,7 @@ export function WatchScreen() {
             Previous
           </button>
           <button
-            className="button arcade"
+            className="button primary"
             disabled={step >= replayMoves.length}
             onClick={() => setStep((current) => Math.min(replayMoves.length, current + 1))}
             type="button"

@@ -163,7 +163,7 @@ export function PuzzleScreen() {
         </div>
 
         <div className="board-actions">
-          <button className="button arcade" onClick={() => resetPuzzle()} type="button">
+          <button className="button primary" onClick={() => resetPuzzle()} type="button">
             <RotateCcw size={18} />
             Reset
           </button>

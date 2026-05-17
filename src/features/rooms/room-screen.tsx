@@ -430,7 +430,7 @@ export function RoomScreen() {
             </p>
           </div>
           <button
-            className="button arcade"
+            className="button primary"
             disabled={loading || profileLoading}
             onClick={handleCreateRoom}
             type="button"

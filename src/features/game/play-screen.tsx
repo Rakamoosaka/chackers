@@ -923,7 +923,7 @@ export function PlayScreen() {
         </div>
 
         <div className="board-actions">
-          <button className="button arcade" onClick={restart} type="button">
+          <button className="button primary" onClick={restart} type="button">
             <RotateCcw size={18} />
             Restart
           </button>
