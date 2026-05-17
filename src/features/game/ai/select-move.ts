@@ -1,9 +1,6 @@
-import {
-  applyMove,
-  evaluateBoard,
-  getLegalMoves,
-} from "@/features/game/engine/board";
-import type { Board, Move, Player } from "@/features/game/engine/types";
+import { getLegalMoves, squareKey } from "@/features/game/engine/board";
+import type { Board, Move, Player, Square } from "@/features/game/engine/types";
+import { analyzePosition } from "./analyze-position";
 
 export type AiDifficulty = "rookie" | "challenger" | "master";
 
@@ -11,8 +8,12 @@ export function selectAiMove(
   board: Board,
   player: Player,
   difficulty: AiDifficulty,
+  forcedSquare?: Square | null,
 ): Move | null {
-  const moves = getLegalMoves(board, player);
+  const allMoves = getLegalMoves(board, player);
+  const moves = forcedSquare
+    ? allMoves.filter((move) => squareKey(move.from) === squareKey(forcedSquare))
+    : allMoves;
 
   if (moves.length === 0) {
     return null;
@@ -23,42 +24,53 @@ export function selectAiMove(
   }
 
   if (difficulty === "challenger") {
-    return selectChallengerMove(board, player, moves);
+    return selectChallengerMove(board, player, moves, forcedSquare);
   }
 
-  return selectMasterMove(board, player, moves);
+  return selectMasterMove(board, player, forcedSquare);
 }
 
-function selectChallengerMove(board: Board, player: Player, moves: Move[]) {
-  const captureMoves = moves.filter((move) => move.captured?.length);
-  const promotionMoves = moves.filter((move) => promotes(board, player, move));
-  const preferred = captureMoves.length ? captureMoves : promotionMoves;
+function selectChallengerMove(
+  board: Board,
+  player: Player,
+  moves: Move[],
+  forcedSquare?: Square | null,
+) {
+  const analysis = analyzePosition(board, player, {
+    depth: 2,
+    deadlineMs: 120,
+    noise: 40,
+    forcedSquare,
+  });
+  const analyzedMoves = analysis.candidates
+    .filter((candidate) => moves.some((move) => sameMove(move, candidate.move)))
+    .slice(0, 3);
+  const preferred = analyzedMoves.length
+    ? analyzedMoves.map((candidate) => candidate.move)
+    : moves;
 
-  return (preferred.length ? preferred : moves)[
-    randomIndex((preferred.length ? preferred : moves).length)
-  ];
+  return preferred[randomIndex(preferred.length)];
 }
 
-function selectMasterMove(board: Board, player: Player, moves: Move[]) {
-  return moves
-    .map((move) => ({
-      move,
-      score: evaluateBoard(applyMove(board, move), player),
-    }))
-    .sort((a, b) => b.score - a.score)[0].move;
-}
-
-function promotes(board: Board, player: Player, move: Move) {
-  const piece = board[move.from.row][move.from.col];
-
-  return Boolean(
-    piece &&
-      !piece.king &&
-      ((player === "red" && move.to.row === 0) ||
-        (player === "black" && move.to.row === 7)),
-  );
+function selectMasterMove(
+  board: Board,
+  player: Player,
+  forcedSquare?: Square | null,
+) {
+  return analyzePosition(board, player, {
+    depth: 5,
+    deadlineMs: 280,
+    forcedSquare,
+  }).bestMove;
 }
 
 function randomIndex(length: number) {
   return Math.floor(Math.random() * length);
+}
+
+function sameMove(first: Move, second: Move) {
+  return (
+    squareKey(first.from) === squareKey(second.from) &&
+    squareKey(first.to) === squareKey(second.to)
+  );
 }

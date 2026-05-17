@@ -453,7 +453,7 @@ export function PlayScreen() {
     }
 
     const timer = window.setTimeout(() => {
-      const aiMove = selectAiMove(board, "black", difficulty);
+      const aiMove = selectAiMove(board, "black", difficulty, forcedPiece);
 
       if (aiMove) {
         commitMove(aiMove);
@@ -461,7 +461,7 @@ export function PlayScreen() {
     }, 450);
 
     return () => window.clearTimeout(timer);
-  }, [board, commitMove, difficulty, isAiThinking]);
+  }, [board, commitMove, difficulty, forcedPiece, isAiThinking]);
 
   useEffect(() => {
     if (winner || !isTimedGame || !matchStarted) {
@@ -1056,6 +1056,12 @@ export function PlayScreen() {
               <p>{coachSummary.headline}</p>
               <p>{coachSummary.keyMoment}</p>
               <p>{coachSummary.improvement}</p>
+              <div className="coach-stats" aria-label="Coach move grades">
+                <span>{coachSummary.bestMoveCount} best</span>
+                <span>{coachSummary.mistakeCount} mistakes</span>
+                <span>{coachSummary.blunderCount} blunders</span>
+                <span>{coachSummary.puzzleTheme}</span>
+              </div>
             </div>
           ) : (
             <p className="coach-note">
