@@ -1,0 +1,52 @@
+---
+description: Apply the Uncodixify UI standard and Sega arcade design layer to UI design and implementation in this repository.
+globs:
+  - "**/*.{tsx,ts,jsx,js,css,scss,md,mdx}"
+alwaysApply: true
+---
+
+# Uncodixify + Sega UI Standards
+
+Read and follow `Uncodixfy.md` before making UI decisions.
+Read and follow `docs/standards/sega.md` when implementing Chackers branded game UI.
+
+Apply both standards in this order:
+
+1. Gameplay clarity and workflow.
+2. Uncodixify quality filter.
+3. Sega arcade visual layer.
+4. Accessibility and readability.
+
+Avoid generic AI-generated UI:
+
+- No decorative gradients, glows, blur haze, glassmorphism, or floating shells.
+- No oversized rounded corners, pill overload, dramatic shadows, or fake premium styling.
+- No marketing hero sections inside app screens.
+- No fake charts, decorative cards, or labels unless they serve a real product purpose.
+- No generic startup copy.
+
+Prefer normal product UI:
+
+- Clear hierarchy.
+- Functional controls.
+- Practical spacing.
+- Simple borders.
+- Compact panels.
+- Readable typography.
+- Product-specific workflows.
+
+Use Sega for:
+
+- Board-adjacent game controls.
+- Arcade-style buttons.
+- Mode selectors.
+- Match status.
+- Branded badges and states.
+
+When Sega and Uncodixify conflict, keep the Sega token or intent but simplify the visual treatment.
+
+For Chackers:
+
+- Keep gameplay clarity first.
+- Make the board, timers, turn state, legal moves, and match controls easy to scan.
+- Keep social, leaderboard, AI Coach, multiplayer, and Pro screens restrained and functional.

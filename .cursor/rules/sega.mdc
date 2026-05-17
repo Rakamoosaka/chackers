@@ -1,0 +1,32 @@
+---
+description: Use the Sega design-system skill as the Chackers arcade visual layer.
+globs:
+  - "**/*.{tsx,ts,jsx,js,css,scss,md,mdx}"
+alwaysApply: true
+---
+
+# Sega Design Standard
+
+Use `docs/standards/sega.md` for Chackers branded game UI.
+
+The Sega standard provides:
+
+- Arcade-inspired visual direction.
+- VT323-based typography guidance.
+- Hard-edged components.
+- Chunky game controls.
+- Strong primary/secondary color tokens.
+- Component states and accessibility expectations.
+
+Do not apply Sega as random decoration. Apply it to product surfaces where a game identity helps:
+
+- game board shell
+- move controls
+- timers
+- mode selectors
+- game status
+- badges
+- puzzle cards
+- multiplayer room states
+
+Keep Uncodixify active as the quality filter. If Sega styling becomes noisy, reduce the effect and preserve gameplay clarity.
