@@ -1,5 +1,4 @@
 import { AppNav } from "@/components/layout/app-nav";
-import { AuthStatus } from "@/features/auth/auth-status";
 import { ProScreen } from "@/features/pro/pro-screen";
 
 export default function ProPage() {
@@ -12,7 +11,6 @@ export default function ProPage() {
             <h1>Pro</h1>
             <p>Coach, analytics, and skins roadmap</p>
           </div>
-          <AuthStatus />
         </div>
         <ProScreen />
       </section>

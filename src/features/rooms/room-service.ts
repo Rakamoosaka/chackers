@@ -139,6 +139,25 @@ export async function updateRoomBoard({
   return data;
 }
 
+export async function finishRoom(room: Room) {
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const { data, error } = await supabase
+    .from("rooms")
+    .update({ status: "finished" })
+    .eq("id", room.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
+
 export async function getRoomPlayers(roomId: string) {
   if (!supabase) {
     return [];

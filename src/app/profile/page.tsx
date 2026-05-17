@@ -1,5 +1,4 @@
 import { AppNav } from "@/components/layout/app-nav";
-import { AuthStatus } from "@/features/auth/auth-status";
 import { ProfileScreen } from "@/features/profile/profile-screen";
 
 export default function ProfilePage() {
@@ -12,7 +11,6 @@ export default function ProfilePage() {
             <h1>Profile</h1>
             <p>Rating, history, and puzzle streak</p>
           </div>
-          <AuthStatus />
         </div>
         <ProfileScreen />
       </section>

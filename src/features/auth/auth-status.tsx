@@ -5,11 +5,14 @@ import { hasSupabaseConfig, supabase } from "@/lib/supabase/client";
 import { useProfile } from "@/features/profile/use-profile";
 
 type AuthMode = "magic" | "password";
+type PasswordAction = "signin" | "signup";
 
 export function AuthStatus() {
   const ready = useMemo(() => hasSupabaseConfig(), []);
   const { user, profile } = useProfile();
   const [mode, setMode] = useState<AuthMode>("magic");
+  const [passwordAction, setPasswordAction] =
+    useState<PasswordAction>("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [message, setMessage] = useState(
@@ -45,18 +48,18 @@ export function AuthStatus() {
       return;
     }
 
-    const signInResult = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
+    if (passwordAction === "signin") {
+      const { error } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
 
-    if (!signInResult.error) {
-      setMessage("Signed in");
+      setMessage(error ? error.message : "Signed in");
       setIsSubmitting(false);
       return;
     }
 
-    const signUpResult = await supabase.auth.signUp({
+    const { data, error } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -65,12 +68,21 @@ export function AuthStatus() {
     });
 
     setMessage(
-      signUpResult.error
-        ? signUpResult.error.message
-        : signUpResult.data.session
+      error
+        ? error.message
+        : data.session
           ? "Account created"
           : "Account created. Check email if confirmation is enabled.",
     );
+
+    if (!error && !data.session) {
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email,
+        password,
+      });
+
+      setMessage(signInError ? signInError.message : "Account created and signed in");
+    }
     setIsSubmitting(false);
   }
 
@@ -83,12 +95,14 @@ export function AuthStatus() {
 
   return (
     <form className="auth-status" onSubmit={handleSubmit}>
-      <span className={ready ? "auth-dot ready" : "auth-dot"} aria-hidden="true" />
-      <div>
-        <strong>
-          {profile?.name ?? (ready ? "Supabase ready" : "Local setup")}
-        </strong>
-        <p aria-live="polite">{message}</p>
+      <div className="auth-summary">
+        <span className={ready ? "auth-dot ready" : "auth-dot"} aria-hidden="true" />
+        <div>
+          <strong>
+            {profile?.name ?? (ready ? "Supabase ready" : "Local setup")}
+          </strong>
+          <p aria-live="polite">{message}</p>
+        </div>
       </div>
       {ready && user ? (
         <button className="button" onClick={handleSignOut} type="button">
@@ -120,13 +134,25 @@ export function AuthStatus() {
             value={email}
           />
           {mode === "password" ? (
-            <input
-              aria-label="Password"
-              onChange={(event) => setPassword(event.target.value)}
-              placeholder="password"
-              type="password"
-              value={password}
-            />
+            <>
+              <select
+                aria-label="Password action"
+                onChange={(event) =>
+                  setPasswordAction(event.target.value as PasswordAction)
+                }
+                value={passwordAction}
+              >
+                <option value="signin">Sign in</option>
+                <option value="signup">Create</option>
+              </select>
+              <input
+                aria-label="Password"
+                onChange={(event) => setPassword(event.target.value)}
+                placeholder="password"
+                type="password"
+                value={password}
+              />
+            </>
           ) : null}
           <button className="button primary" disabled={isSubmitting} type="submit">
             {isSubmitting ? "Working" : "Sign in"}

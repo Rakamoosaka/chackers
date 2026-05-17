@@ -1,4 +1,5 @@
-import { BarChart3, Crown, Eye, Puzzle, User, Users } from "lucide-react";
+import { BarChart3, Crown, Eye, Puzzle, Settings, User, Users } from "lucide-react";
+import { AuthStatus } from "@/features/auth/auth-status";
 
 const navItems = [
   { label: "Play", href: "/", icon: Crown },
@@ -8,6 +9,7 @@ const navItems = [
   { label: "Watch", href: "/watch", icon: Eye },
   { label: "Profile", href: "/profile", icon: User },
   { label: "Pro", href: "/pro", icon: Crown },
+  { label: "Setup", href: "/setup", icon: Settings },
 ];
 
 export function AppNav({ current = "Play" }: { current?: string }) {
@@ -33,6 +35,9 @@ export function AppNav({ current = "Play" }: { current?: string }) {
             </a>
           );
         })}
+      </div>
+      <div className="sidebar-auth">
+        <AuthStatus />
       </div>
     </nav>
   );

@@ -1,5 +1,4 @@
 import { AppNav } from "@/components/layout/app-nav";
-import { AuthStatus } from "@/features/auth/auth-status";
 import { LeaderboardScreen } from "@/features/leaderboard/leaderboard-screen";
 
 export default function LeaderboardPage() {
@@ -12,7 +11,6 @@ export default function LeaderboardPage() {
             <h1>Leaderboard</h1>
             <p>Global and city rankings</p>
           </div>
-          <AuthStatus />
         </div>
         <LeaderboardScreen />
       </section>

@@ -1,5 +1,4 @@
 import { AppNav } from "@/components/layout/app-nav";
-import { AuthStatus } from "@/features/auth/auth-status";
 import { WatchScreen } from "@/features/watch/watch-screen";
 
 export default function WatchPage() {
@@ -12,7 +11,6 @@ export default function WatchPage() {
             <h1>Watch Party</h1>
             <p>Seeded live match replay and reactions</p>
           </div>
-          <AuthStatus />
         </div>
         <WatchScreen />
       </section>

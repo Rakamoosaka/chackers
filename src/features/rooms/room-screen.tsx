@@ -1,6 +1,6 @@
 "use client";
 
-import { Copy, Link2, RefreshCw, UserPlus } from "lucide-react";
+import { Copy, Flag, Link2, RefreshCw, UserPlus } from "lucide-react";
 import { useEffect, useMemo, useReducer, useState } from "react";
 import {
   applyMoveWithMetadata,
@@ -15,6 +15,7 @@ import { supabase } from "@/lib/supabase/client";
 import type { Json } from "@/types/database";
 import {
   createRoom,
+  finishRoom,
   getPlayerForSeat,
   getRoomByCode,
   getRoomMessages,
@@ -78,7 +79,7 @@ export function RoomScreen() {
     );
   }, [profile, snapshot]);
   const legalMoves = useMemo(() => {
-    if (!snapshot) {
+    if (!snapshot || snapshot.room.status === "finished") {
       return [];
     }
 
@@ -305,6 +306,11 @@ export function RoomScreen() {
       return;
     }
 
+    if (snapshot.room.status === "finished") {
+      dispatch({ type: "status", status: "Room is finished." });
+      return;
+    }
+
     if (playerSeat !== snapshot.room.turn) {
       dispatch({ type: "status", status: "Wait for your turn." });
       return;
@@ -372,6 +378,27 @@ export function RoomScreen() {
         type: "failed",
         message:
           roomError instanceof Error ? roomError.message : "Could not sync move.",
+      });
+    }
+  }
+
+  async function resignRoom() {
+    if (!snapshot || !playerSeat || playerSeat === "spectator") {
+      return;
+    }
+
+    try {
+      const room = await finishRoom(snapshot.room);
+      dispatch({
+        type: "loaded",
+        snapshot: { room, players: snapshot.players },
+        status: `${playerSeat === "red" ? "Red" : "Black"} resigned. Room finished.`,
+      });
+    } catch (roomError) {
+      dispatch({
+        type: "failed",
+        message:
+          roomError instanceof Error ? roomError.message : "Could not resign.",
       });
     }
   }
@@ -459,6 +486,21 @@ export function RoomScreen() {
                   {blackPlayer?.display_name ?? "Open"}
                 </strong>
               </div>
+            </div>
+            <div className="board-actions">
+              <button
+                className="button danger"
+                disabled={
+                  snapshot.room.status === "finished" ||
+                  !playerSeat ||
+                  playerSeat === "spectator"
+                }
+                onClick={resignRoom}
+                type="button"
+              >
+                <Flag size={18} />
+                Resign
+              </button>
             </div>
 
             <div className="board" role="grid" aria-label="Room checkers board">

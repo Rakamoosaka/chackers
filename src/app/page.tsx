@@ -1,4 +1,3 @@
-import { AuthStatus } from "@/features/auth/auth-status";
 import { PlayScreen } from "@/features/game/play-screen";
 import { AppNav } from "@/components/layout/app-nav";
 
@@ -10,9 +9,8 @@ export default function Home() {
         <div className="top-bar">
           <div>
             <h1>Chackers</h1>
-            <p>Blitz vs AI</p>
+            <p>Play vs AI or local two-player</p>
           </div>
-          <AuthStatus />
         </div>
         <PlayScreen />
       </section>

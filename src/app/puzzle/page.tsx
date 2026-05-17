@@ -1,4 +1,3 @@
-import { AuthStatus } from "@/features/auth/auth-status";
 import { AppNav } from "@/components/layout/app-nav";
 import { PuzzleScreen } from "@/features/puzzles/puzzle-screen";
 
@@ -12,7 +11,6 @@ export default function PuzzlePage() {
             <h1>Daily Puzzle</h1>
             <p>Curated tactics with streak progress</p>
           </div>
-          <AuthStatus />
         </div>
         <PuzzleScreen />
       </section>

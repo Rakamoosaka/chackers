@@ -101,6 +101,30 @@ alter table public.rooms enable row level security;
 alter table public.room_players enable row level security;
 alter table public.room_messages enable row level security;
 
+grant usage on schema public to anon, authenticated;
+
+grant select on public.profiles to anon, authenticated;
+grant insert, update on public.profiles to authenticated;
+
+grant select, insert, update on public.matches to authenticated;
+grant select, insert on public.match_moves to authenticated;
+
+grant select on public.leaderboard_entries to anon, authenticated;
+grant insert, update on public.leaderboard_entries to authenticated;
+
+grant select, insert, update on public.puzzle_progress to authenticated;
+
+grant select on public.rooms to anon, authenticated;
+grant insert, update on public.rooms to authenticated;
+
+grant select on public.room_players to anon, authenticated;
+grant insert on public.room_players to anon, authenticated;
+
+grant select on public.room_messages to anon, authenticated;
+grant insert on public.room_messages to anon, authenticated;
+
+grant usage, select on all sequences in schema public to authenticated;
+
 create policy "profiles are readable" on public.profiles
   for select using (true);
 

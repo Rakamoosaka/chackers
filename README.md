@@ -28,6 +28,7 @@ Chackers turns checkers into a competitive learning product:
 8. Open Friend Room, create an invite link, and show room seats/board sync.
 9. Open Watch Party prototype.
 10. Open Pro and explain monetization.
+11. Open Setup if you need to verify Supabase health during the demo.
 
 ## Tech Stack
 
@@ -82,6 +83,7 @@ npm run test
 - `src/features/rooms`: friend-link rooms, player seats, board state, and Realtime subscriptions.
 - `src/features/watch`: seeded Watch Party replay prototype.
 - `src/features/pro`: monetization and premium-skin roadmap surface.
+- `src/features/setup`: read-only Supabase health checks for demo readiness.
 
 ## Supabase Tables
 
@@ -137,3 +139,4 @@ Recommended:
 - Add `NEXT_PUBLIC_SUPABASE_URL` and `NEXT_PUBLIC_SUPABASE_ANON_KEY` in Vercel environment variables.
 - Run `supabase/schema.sql` before testing backend-backed flows.
 - Run `supabase/seed.sql` if you want demo leaderboard rows in the database.
+- Open `/setup` locally to verify that public tables are readable and Auth is reachable.

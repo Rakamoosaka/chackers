@@ -1,6 +1,6 @@
 "use client";
 
-import { Link2, RotateCcw, StepBack } from "lucide-react";
+import { Flag, Link2, RotateCcw, StepBack } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { LeaderboardPanel } from "@/features/leaderboard/leaderboard-panel";
 import { ProfileSummary } from "@/features/profile/profile-summary";
@@ -36,12 +36,13 @@ type GameSnapshot = {
   moveLog: string[];
   lastMove: Move | null;
   clocks: PlayerClocks;
+  matchStarted: boolean;
 };
 
-const timeControlSeconds: Record<TimeControl, number> = {
-  bullet: 60,
-  blitz: 300,
-  rapid: 600,
+const timeControls: Record<TimeControl, { label: string; seconds: number; increment: number }> = {
+  bullet: { label: "Bullet 1+1", seconds: 60, increment: 1 },
+  blitz: { label: "Blitz 5+1", seconds: 300, increment: 1 },
+  rapid: { label: "Rapid 10+0", seconds: 600, increment: 0 },
 };
 
 export function PlayScreen() {
@@ -60,6 +61,7 @@ export function PlayScreen() {
   const [history, setHistory] = useState<GameSnapshot[]>([]);
   const [lastMove, setLastMove] = useState<Move | null>(null);
   const [winner, setWinner] = useState<GameWinner>(null);
+  const [matchStarted, setMatchStarted] = useState(false);
   const [saveStatus, setSaveStatus] = useState("Sign in to save games.");
   const [matchHistoryKey, setMatchHistoryKey] = useState(0);
   const savedMatchKeyRef = useRef<string | null>(null);
@@ -79,6 +81,7 @@ export function PlayScreen() {
     ? legalMoves.filter((move) => squareKey(move.from) === squareKey(selected))
     : [];
   const isAiThinking = mode === "ai" && turn === "black" && !winner;
+  const isTimedGame = mode === "local";
   const displayedSaveStatus =
     winner && !profile ? "Sign in to save this result." : saveStatus;
   const coachSummary =
@@ -94,6 +97,7 @@ export function PlayScreen() {
         moveLog,
         lastMove,
         clocks,
+        matchStarted,
       },
       ...current,
     ]);
@@ -113,12 +117,30 @@ export function PlayScreen() {
     setBoard(nextBoard);
     setMoveLog((current) => [notation, ...current]);
     setPlayedMoves((current) => [...current, { ...moveWithMetadata, player: turn }]);
+    setMatchStarted(true);
+    if (isTimedGame) {
+      setClocks((current) => ({
+        ...current,
+        [turn]: current[turn] + timeControls[timeControl].increment,
+      }));
+    }
     setTurn(nextTurn);
     setForcedPiece(mustContinue ? move.to : null);
     setLastMove(move);
     setWinner(nextWinner);
     setSelected(null);
-  }, [board, clocks, forcedPiece, lastMove, moveLog, turn, winner]);
+  }, [
+    board,
+    clocks,
+    forcedPiece,
+    isTimedGame,
+    lastMove,
+    matchStarted,
+    moveLog,
+    timeControl,
+    turn,
+    winner,
+  ]);
 
   useEffect(() => {
     const matchKey = `${winner}-${playedMoves.length}`;
@@ -192,7 +214,7 @@ export function PlayScreen() {
   }, [board, commitMove, difficulty, isAiThinking]);
 
   useEffect(() => {
-    if (winner) {
+    if (winner || !isTimedGame || !matchStarted) {
       return;
     }
 
@@ -223,7 +245,7 @@ export function PlayScreen() {
     }, 1000);
 
     return () => window.clearInterval(timer);
-  }, [turn, winner]);
+  }, [isTimedGame, matchStarted, turn, winner]);
 
   function handleSquareClick(square: Square) {
     if (winner || isAiThinking) {
@@ -266,6 +288,7 @@ export function PlayScreen() {
     setHistory([]);
     setLastMove(null);
     setWinner(null);
+    setMatchStarted(false);
     savedMatchKeyRef.current = null;
     setSaveStatus(profile ? "Ready to save completed games." : "Sign in to save games.");
   }
@@ -283,11 +306,42 @@ export function PlayScreen() {
     setWinner(previous.winner);
     setMoveLog(previous.moveLog);
     setClocks(previous.clocks);
+    setMatchStarted(previous.matchStarted);
     setPlayedMoves((current) => current.slice(0, -1));
     setLastMove(previous.lastMove);
     setHistory(rest);
     setSelected(null);
     savedMatchKeyRef.current = null;
+  }
+
+  function resign() {
+    if (winner || isAiThinking) {
+      return;
+    }
+
+    const resigningPlayer = turn;
+    const nextWinner = resigningPlayer === "red" ? "black" : "red";
+
+    setHistory((current) => [
+      {
+        board,
+        turn,
+        forcedPiece,
+        winner,
+        moveLog,
+        lastMove,
+        clocks,
+        matchStarted,
+      },
+      ...current,
+    ]);
+    setWinner(nextWinner);
+    setSelected(null);
+    setForcedPiece(null);
+    setMoveLog((current) => [
+      `${resigningPlayer === "red" ? "Red" : "Black"} resigns`,
+      ...current,
+    ]);
   }
 
   function handleModeChange(nextMode: GameMode) {
@@ -306,13 +360,15 @@ export function PlayScreen() {
         <div className="match-strip">
           <TimerBox
             label="Red"
-            time={formatClock(clocks.red)}
-            active={turn === "red" && !winner}
+            time={isTimedGame ? formatClock(clocks.red) : "Untimed"}
+            active={isTimedGame && matchStarted && turn === "red" && !winner}
           />
           <div className="turn-box">
             {winner
               ? `${winner === "red" ? "Red" : "Black"} wins`
-              : forcedPiece
+              : !matchStarted
+                ? "Move a piece to start the game."
+                : forcedPiece
                 ? "Capture chain"
                 : isAiThinking
                   ? "Black AI thinking"
@@ -322,8 +378,8 @@ export function PlayScreen() {
           </div>
           <TimerBox
             label={mode === "ai" ? "Black AI" : "Black"}
-            time={formatClock(clocks.black)}
-            active={turn === "black" && !winner}
+            time={isTimedGame ? formatClock(clocks.black) : "Untimed"}
+            active={isTimedGame && matchStarted && turn === "black" && !winner}
           />
         </div>
 
@@ -380,6 +436,15 @@ export function PlayScreen() {
             <StepBack size={18} />
             Undo
           </button>
+          <button
+            className="button danger"
+            disabled={Boolean(winner) || isAiThinking}
+            onClick={resign}
+            type="button"
+          >
+            <Flag size={18} />
+            Resign
+          </button>
         </div>
       </section>
 
@@ -409,19 +474,21 @@ export function PlayScreen() {
                 <option value="master">Master</option>
               </select>
             </label>
-            <label className="field">
-              <span>Time control</span>
-              <select
-                onChange={(event) =>
-                  handleTimeControlChange(event.target.value as TimeControl)
-                }
-                value={timeControl}
-              >
-                <option value="bullet">Bullet 1+0</option>
-                <option value="blitz">Blitz 5+0</option>
-                <option value="rapid">Rapid 10+0</option>
-              </select>
-            </label>
+            {mode === "local" ? (
+              <label className="field">
+                <span>Time control</span>
+                <select
+                  onChange={(event) =>
+                    handleTimeControlChange(event.target.value as TimeControl)
+                  }
+                  value={timeControl}
+                >
+                  <option value="bullet">{timeControls.bullet.label}</option>
+                  <option value="blitz">{timeControls.blitz.label}</option>
+                  <option value="rapid">{timeControls.rapid.label}</option>
+                </select>
+              </label>
+            ) : null}
           </div>
         </section>
 
@@ -494,8 +561,8 @@ export function PlayScreen() {
 
 function createClocks(timeControl: TimeControl): PlayerClocks {
   return {
-    red: timeControlSeconds[timeControl],
-    black: timeControlSeconds[timeControl],
+    red: timeControls[timeControl].seconds,
+    black: timeControls[timeControl].seconds,
   };
 }
 

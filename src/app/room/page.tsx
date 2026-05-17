@@ -1,5 +1,4 @@
 import { AppNav } from "@/components/layout/app-nav";
-import { AuthStatus } from "@/features/auth/auth-status";
 import { RoomScreen } from "@/features/rooms/room-screen";
 
 export default function RoomPage() {
@@ -12,7 +11,6 @@ export default function RoomPage() {
             <h1>Friend Room</h1>
             <p>Create an invite link and claim seats</p>
           </div>
-          <AuthStatus />
         </div>
         <RoomScreen />
       </section>

@@ -56,6 +56,8 @@ button:disabled {
 .app-nav {
   border-right: 1px solid var(--border);
   background: var(--surface);
+  display: flex;
+  flex-direction: column;
   padding: 20px 16px;
 }
 
@@ -107,6 +109,10 @@ button:disabled {
   border-color: var(--border);
 }
 
+.sidebar-auth {
+  margin-top: 24px;
+}
+
 .app-main {
   min-width: 0;
   padding: 24px;
@@ -144,7 +150,8 @@ h2 {
 .profile-page,
 .room-page,
 .watch-page,
-.pro-page {
+.pro-page,
+.setup-page {
   align-items: start;
   display: grid;
   gap: 20px;
@@ -289,6 +296,11 @@ h2 {
   color: #ffffff;
 }
 
+.button.danger {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
 .button.arcade {
   background: var(--secondary);
   box-shadow: 3px 3px 0 #111827;
@@ -300,6 +312,10 @@ h2 {
 
 .button.primary:hover {
   background: #3210b8;
+}
+
+.button.danger:hover {
+  background: #fee2e2;
 }
 
 .button.arcade:hover {
@@ -494,6 +510,36 @@ h2 {
 
 .skin-swatch.minimal {
   background: var(--surface-muted);
+}
+
+.setup-check-list {
+  border: 1px solid var(--border);
+  display: grid;
+}
+
+.setup-check-row {
+  align-items: start;
+  border-bottom: 1px solid var(--border);
+  display: flex;
+  gap: 10px;
+  padding: 10px;
+}
+
+.setup-check-row:last-child {
+  border-bottom: 0;
+}
+
+.setup-check-row[data-status="ok"] svg {
+  color: var(--success);
+}
+
+.setup-check-row[data-status="fail"] svg {
+  color: var(--danger);
+}
+
+.setup-check-row p {
+  color: var(--muted);
+  font-size: 13px;
 }
 
 .move-list {
@@ -705,24 +751,30 @@ h2 {
 }
 
 .auth-status {
-  align-items: center;
-  display: flex;
-  gap: 10px;
+  display: grid;
+  gap: 8px;
   padding: 8px 10px;
+}
+
+.auth-summary {
+  align-items: start;
+  display: grid;
+  gap: 8px;
+  grid-template-columns: 10px minmax(0, 1fr);
 }
 
 .auth-status input {
   border: 1px solid var(--border);
   min-height: 36px;
   padding: 6px 8px;
-  width: 180px;
+  width: 100%;
 }
 
 .auth-status select {
   border: 1px solid var(--border);
   min-height: 36px;
   padding: 6px 8px;
-  width: 132px;
+  width: 100%;
 }
 
 .auth-dot {
@@ -743,6 +795,7 @@ h2 {
   .app-nav {
     border-bottom: 1px solid var(--border);
     border-right: 0;
+    display: block;
     padding: 12px;
   }
 
@@ -759,6 +812,10 @@ h2 {
     flex: 0 0 auto;
   }
 
+  .sidebar-auth {
+    margin-top: 12px;
+  }
+
   .app-main {
     padding: 16px;
   }
@@ -769,7 +826,8 @@ h2 {
   .profile-page,
   .room-page,
   .watch-page,
-  .pro-page {
+  .pro-page,
+  .setup-page {
     grid-template-columns: 1fr;
   }
 }
@@ -778,20 +836,6 @@ h2 {
   .top-bar {
     align-items: flex-start;
     display: grid;
-  }
-
-  .auth-status {
-    align-items: stretch;
-    display: grid;
-    width: 100%;
-  }
-
-  .auth-status input {
-    width: 100%;
-  }
-
-  .auth-status select {
-    width: 100%;
   }
 
   .match-strip {
