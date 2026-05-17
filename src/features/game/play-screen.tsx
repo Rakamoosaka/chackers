@@ -1,9 +1,20 @@
 "use client";
 
-import { Flag, Link2, RotateCcw, StepBack } from "lucide-react";
+import { Flag, Link2, RotateCcw, StepBack, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProfileSummary } from "@/features/profile/profile-summary";
 import { useProfile } from "@/features/profile/use-profile";
+import {
+  createRoom,
+  finishRoom,
+  getPlayerForSeat,
+  getRoomByCode,
+  getRoomPlayers,
+  joinRoomAsOpponent,
+  updateRoomBoard,
+  type RoomSnapshot,
+} from "@/features/rooms/room-service";
+import { supabase } from "@/lib/supabase/client";
 import { analyzeGame } from "./coach/analyze-game";
 import { selectAiMove, type AiDifficulty } from "./ai/select-move";
 import {
@@ -22,7 +33,7 @@ import {
 } from "./storage/match-service";
 import type { TimeControl } from "@/types/database";
 
-type GameMode = "ai" | "local";
+type GameMode = "ai" | "local" | "friend";
 
 type PlayerClocks = Record<Player, number>;
 
@@ -61,11 +72,51 @@ export function PlayScreen() {
   const [winner, setWinner] = useState<GameWinner>(null);
   const [matchStarted, setMatchStarted] = useState(false);
   const [saveStatus, setSaveStatus] = useState("Sign in to save games.");
+  const [roomSnapshot, setRoomSnapshot] = useState<RoomSnapshot | null>(null);
+  const [roomStatus, setRoomStatus] = useState("Create an invite to play a friend.");
+  const [roomLoading, setRoomLoading] = useState(false);
+  const [joinCode, setJoinCode] = useState("");
+  const [showJoinForm, setShowJoinForm] = useState(false);
   const savedMatchKeyRef = useRef<string | null>(null);
+  const loadedInviteCodeRef = useRef<string | null>(null);
+  const confirmedNavigationRef = useRef(false);
   const { profile, loading: profileLoading, error: profileError, refreshProfile } =
     useProfile();
+  const playerSeat = useMemo(() => {
+    if (!profile || !roomSnapshot) {
+      return null;
+    }
+
+    return (
+      roomSnapshot.players.find((player) => player.user_id === profile.id)?.seat ??
+      null
+    );
+  }, [profile, roomSnapshot]);
+  const roomHasBothPlayers = Boolean(
+    roomSnapshot &&
+      getPlayerForSeat(roomSnapshot.players, "red") &&
+      getPlayerForSeat(roomSnapshot.players, "black"),
+  );
+  const roomReady = Boolean(
+    mode === "friend" &&
+      roomSnapshot &&
+      roomSnapshot.room.status === "active" &&
+      roomHasBothPlayers,
+  );
+  const activeFriendGame = Boolean(roomReady && !winner);
+  const shouldFlipBoard = mode === "friend" && playerSeat === "black";
+  const displayedSquares = useMemo(
+    () => getDisplayedSquares(shouldFlipBoard),
+    [shouldFlipBoard],
+  );
+  const activeFriendGameRef = useRef(activeFriendGame);
+  const roomSnapshotRef = useRef(roomSnapshot);
 
   const legalMoves = useMemo(() => {
+    if (mode === "friend" && (!roomReady || playerSeat !== turn)) {
+      return [];
+    }
+
     const moves = getLegalMoves(board, turn);
 
     if (!forcedPiece) {
@@ -73,7 +124,7 @@ export function PlayScreen() {
     }
 
     return moves.filter((move) => squareKey(move.from) === squareKey(forcedPiece));
-  }, [board, forcedPiece, turn]);
+  }, [board, forcedPiece, mode, playerSeat, roomReady, turn]);
   const selectedMoves = selected
     ? legalMoves.filter((move) => squareKey(move.from) === squareKey(selected))
     : [];
@@ -83,6 +134,11 @@ export function PlayScreen() {
     winner && !profile ? "Sign in to save this result." : saveStatus;
   const coachSummary =
     winner && winner !== "draw" ? analyzeGame(playedMoves, winner) : null;
+
+  useEffect(() => {
+    activeFriendGameRef.current = activeFriendGame;
+    roomSnapshotRef.current = roomSnapshot;
+  }, [activeFriendGame, roomSnapshot]);
 
   const commitMove = useCallback((move: Move) => {
     setHistory((current) => [
@@ -143,6 +199,7 @@ export function PlayScreen() {
     const matchKey = `${winner}-${playedMoves.length}`;
 
     if (
+      mode === "friend" ||
       !winner ||
       winner === "draw" ||
       savedMatchKeyRef.current === matchKey
@@ -165,7 +222,7 @@ export function PlayScreen() {
       try {
         await saveCompletedMatch({
           profile,
-          mode,
+          mode: mode === "friend" ? "local" : mode,
           timeControl,
           opponent: mode === "ai" ? `${difficulty} AI` : "Local player",
           winner,
@@ -192,6 +249,248 @@ export function PlayScreen() {
     timeControl,
     winner,
   ]);
+
+  useEffect(() => {
+    if (profileLoading) {
+      return;
+    }
+
+    const code = new URLSearchParams(window.location.search)
+      .get("code")
+      ?.toUpperCase();
+
+    if (!code || loadedInviteCodeRef.current === code) {
+      return;
+    }
+
+    if (!profile) {
+      const timer = window.setTimeout(() => {
+        setRoomStatus("Sign in to join the invite.");
+      }, 0);
+
+      return () => window.clearTimeout(timer);
+    }
+
+    if (profile) {
+      loadedInviteCodeRef.current = code;
+      void joinInviteFromUrl(code);
+      return;
+    }
+
+    async function joinInviteFromUrl(inviteCode: string) {
+      if (!profile) {
+        return;
+      }
+
+      setRoomLoading(true);
+      setMode("friend");
+      setBoard(createInitialBoard());
+      setTurn("red");
+      setClocks(createClocks(timeControl));
+      setSelected(null);
+      setForcedPiece(null);
+      setMoveLog([]);
+      setPlayedMoves([]);
+      setHistory([]);
+      setLastMove(null);
+      setWinner(null);
+      setMatchStarted(false);
+      setRoomSnapshot(null);
+      setRoomStatus("Joining invite.");
+      savedMatchKeyRef.current = null;
+
+      try {
+        const existingRoom = await getRoomByCode(inviteCode);
+        const nextSnapshot = await joinRoomAsOpponent(existingRoom.room, profile);
+        const nextBoard = parseRoomBoard(nextSnapshot.room.board_state);
+
+        setRoomSnapshot(nextSnapshot);
+        setBoard(nextBoard.length ? nextBoard : createInitialBoard());
+        setTurn(nextSnapshot.room.turn);
+        setMatchStarted(nextSnapshot.room.status === "active");
+        setRoomStatus(
+          nextSnapshot.room.status === "active"
+            ? "Joined. Red moves first."
+            : "Joined. Waiting for friend.",
+        );
+      } catch (error) {
+        setRoomStatus(error instanceof Error ? error.message : "Could not join invite.");
+      } finally {
+        setRoomLoading(false);
+      }
+    }
+  }, [profile, profileLoading, timeControl]);
+
+  useEffect(() => {
+    function handleBeforeUnload(event: BeforeUnloadEvent) {
+      if (!activeFriendGameRef.current || confirmedNavigationRef.current) {
+        return;
+      }
+
+      event.preventDefault();
+      event.returnValue = "";
+    }
+
+    function handleDocumentClick(event: MouseEvent) {
+      if (!activeFriendGameRef.current) {
+        return;
+      }
+
+      const target = event.target;
+
+      if (!(target instanceof Element)) {
+        return;
+      }
+
+      const link = target.closest("a");
+
+      if (!link?.href || link.target || link.hasAttribute("download")) {
+        return;
+      }
+
+      const nextUrl = new URL(link.href);
+
+      if (
+        nextUrl.origin !== window.location.origin ||
+        nextUrl.pathname === window.location.pathname
+      ) {
+        return;
+      }
+
+      event.preventDefault();
+
+      if (!window.confirm("Leaving this game will surrender it. Leave game?")) {
+        return;
+      }
+
+      const snapshot = roomSnapshotRef.current;
+      confirmedNavigationRef.current = true;
+
+      if (!snapshot) {
+        window.location.href = link.href;
+        return;
+      }
+
+      void finishRoom(snapshot.room).finally(() => {
+        window.location.href = link.href;
+      });
+    }
+
+    window.addEventListener("beforeunload", handleBeforeUnload);
+    document.addEventListener("click", handleDocumentClick, true);
+
+    return () => {
+      window.removeEventListener("beforeunload", handleBeforeUnload);
+      document.removeEventListener("click", handleDocumentClick, true);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (!supabase || !roomSnapshot?.room.id) {
+      return;
+    }
+
+    const client = supabase;
+    const roomId = roomSnapshot.room.id;
+    const channel = client
+      .channel(`play-room-${roomId}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "rooms",
+          filter: `id=eq.${roomId}`,
+        },
+        (payload) => {
+          const nextRoom = payload.new as RoomSnapshot["room"];
+          const nextBoard = parseRoomBoard(nextRoom.board_state);
+
+          setRoomSnapshot((current) =>
+            current ? { ...current, room: nextRoom } : current,
+          );
+          if (nextBoard.length) {
+            setBoard(nextBoard);
+          }
+          setTurn(nextRoom.turn);
+          setSelected(null);
+          setMatchStarted(nextRoom.status === "active");
+          setRoomStatus(
+            nextRoom.status === "finished" ? "Room finished." : "Board synced.",
+          );
+        },
+      )
+      .on(
+        "postgres_changes",
+        {
+          event: "*",
+          schema: "public",
+          table: "room_players",
+          filter: `room_id=eq.${roomId}`,
+        },
+        async () => {
+          const players = await getRoomPlayers(roomId);
+          setRoomSnapshot((current) =>
+            current ? { ...current, players } : current,
+          );
+          setRoomStatus(
+            getPlayerForSeat(players, "red") && getPlayerForSeat(players, "black")
+              ? "Both players joined. Red moves first."
+              : "Waiting for friend to join.",
+          );
+        },
+      )
+      .subscribe();
+
+    return () => {
+      void client.removeChannel(channel);
+    };
+  }, [roomSnapshot?.room.id]);
+
+  useEffect(() => {
+    if (mode !== "friend" || !roomSnapshot?.room.code) {
+      return;
+    }
+
+    let active = true;
+    const timer = window.setInterval(() => {
+      getRoomByCode(roomSnapshot.room.code)
+        .then((nextSnapshot) => {
+          if (!active) {
+            return;
+          }
+
+          const nextBoard = parseRoomBoard(nextSnapshot.room.board_state);
+          const hasRed = Boolean(getPlayerForSeat(nextSnapshot.players, "red"));
+          const hasBlack = Boolean(getPlayerForSeat(nextSnapshot.players, "black"));
+
+          setRoomSnapshot(nextSnapshot);
+          if (nextBoard.length) {
+            setBoard(nextBoard);
+          }
+          setTurn(nextSnapshot.room.turn);
+          setMatchStarted(nextSnapshot.room.status === "active");
+
+          if (nextSnapshot.room.status === "finished") {
+            setRoomStatus("Room finished.");
+          } else if (hasRed && hasBlack) {
+            setRoomStatus("Both players joined. Red moves first.");
+          } else {
+            setRoomStatus("Waiting for friend to join.");
+          }
+        })
+        .catch(() => {
+          if (active) {
+            setRoomStatus("Could not refresh invite status.");
+          }
+        });
+    }, 2000);
+
+    return () => {
+      active = false;
+      window.clearInterval(timer);
+    };
+  }, [mode, roomSnapshot?.room.code]);
 
   useEffect(() => {
     if (!isAiThinking) {
@@ -248,12 +547,34 @@ export function PlayScreen() {
       return;
     }
 
+    if (mode === "friend") {
+      if (!roomSnapshot || !playerSeat || playerSeat === "spectator") {
+        setRoomStatus("Join a room seat before moving.");
+        return;
+      }
+
+      if (!roomReady) {
+        setRoomStatus("Waiting for friend to join.");
+        return;
+      }
+
+      if (playerSeat !== turn) {
+        setRoomStatus("Wait for your turn.");
+        return;
+      }
+    }
+
     const piece = board[square.row][square.col];
     const chosenMove = selectedMoves.find(
       (move) => squareKey(move.to) === squareKey(square),
     );
 
     if (chosenMove) {
+      if (mode === "friend") {
+        void commitRoomMove(chosenMove);
+        return;
+      }
+
       commitMove(chosenMove);
       return;
     }
@@ -285,8 +606,31 @@ export function PlayScreen() {
     setLastMove(null);
     setWinner(null);
     setMatchStarted(false);
+    setRoomSnapshot(null);
+    setRoomStatus("Create an invite to play a friend.");
     savedMatchKeyRef.current = null;
     setSaveStatus(profile ? "Ready to save completed games." : "Sign in to save games.");
+  }
+
+  async function surrenderFriendGame() {
+    if (roomSnapshot) {
+      try {
+        await finishRoom(roomSnapshot.room);
+      } catch {
+        setRoomStatus("Left locally. Could not update room status.");
+      }
+    }
+  }
+
+  async function leaveFriendRoom() {
+    confirmedNavigationRef.current = true;
+    await surrenderFriendGame();
+    confirmedNavigationRef.current = false;
+    setMode("ai");
+    resetGame(timeControl);
+    setJoinCode("");
+    setShowJoinForm(false);
+    window.history.replaceState(null, "", "/");
   }
 
   function undo() {
@@ -340,14 +684,170 @@ export function PlayScreen() {
     ]);
   }
 
-  function handleModeChange(nextMode: GameMode) {
+  async function handleModeChange(nextMode: GameMode) {
+    if (nextMode === mode) {
+      return;
+    }
+
+    if (
+      activeFriendGame &&
+      nextMode !== "friend" &&
+      !window.confirm("Changing mode will surrender this game. Leave game?")
+    ) {
+      return;
+    }
+
+    if (activeFriendGame && nextMode !== "friend") {
+      confirmedNavigationRef.current = true;
+      await surrenderFriendGame();
+      confirmedNavigationRef.current = false;
+    }
+
     setMode(nextMode);
+    if (nextMode !== "friend") {
+      setRoomSnapshot(null);
+      setRoomStatus("Create an invite to play a friend.");
+    }
     restart();
   }
 
   function handleTimeControlChange(nextTimeControl: TimeControl) {
     setTimeControl(nextTimeControl);
     resetGame(nextTimeControl);
+  }
+
+  async function handleCreateInvite() {
+    if (!profile) {
+      setRoomStatus("Sign in before creating an invite.");
+      return;
+    }
+
+    setRoomLoading(true);
+    setMode("friend");
+    resetGame(timeControl);
+    setRoomStatus("Creating invite.");
+
+    try {
+      const nextSnapshot = await createRoom(profile);
+      const nextBoard = parseRoomBoard(nextSnapshot.room.board_state);
+
+      setRoomSnapshot(nextSnapshot);
+      setBoard(nextBoard.length ? nextBoard : createInitialBoard());
+      setTurn(nextSnapshot.room.turn);
+      setMatchStarted(false);
+      window.history.replaceState(null, "", `/?code=${nextSnapshot.room.code}`);
+      setJoinCode("");
+      setShowJoinForm(false);
+      setRoomStatus(
+        `Invite ready. You are ${formatSeat(nextSnapshot.players.find((player) => player.user_id === profile.id)?.seat)}.`,
+      );
+    } catch (error) {
+      setRoomStatus(error instanceof Error ? error.message : "Could not create invite.");
+    } finally {
+      setRoomLoading(false);
+    }
+  }
+
+  async function handleJoinInvite() {
+    const code = joinCode.trim().toUpperCase();
+
+    if (!profile) {
+      setRoomStatus("Sign in before joining an invite.");
+      return;
+    }
+
+    if (!code) {
+      setRoomStatus("Enter an invite code.");
+      return;
+    }
+
+    setRoomLoading(true);
+    setMode("friend");
+    resetGame(timeControl);
+    setRoomStatus("Joining invite.");
+
+    try {
+      const existingRoom = await getRoomByCode(code);
+      const nextSnapshot = await joinRoomAsOpponent(existingRoom.room, profile);
+      const nextBoard = parseRoomBoard(nextSnapshot.room.board_state);
+
+      setRoomSnapshot(nextSnapshot);
+      setBoard(nextBoard.length ? nextBoard : createInitialBoard());
+      setTurn(nextSnapshot.room.turn);
+      setMatchStarted(nextSnapshot.room.status === "active");
+      window.history.replaceState(null, "", `/?code=${nextSnapshot.room.code}`);
+      setShowJoinForm(false);
+      setRoomStatus(
+        nextSnapshot.room.status === "active"
+          ? "Joined. Red moves first."
+          : "Joined. Waiting for friend.",
+      );
+    } catch (error) {
+      setRoomStatus(error instanceof Error ? error.message : "Could not join invite.");
+    } finally {
+      setRoomLoading(false);
+    }
+  }
+
+  async function copyInviteCode() {
+    if (!roomSnapshot?.room.code) {
+      return;
+    }
+
+    await navigator.clipboard.writeText(roomSnapshot.room.code);
+    setRoomStatus("Invite code copied.");
+  }
+
+  async function commitRoomMove(move: Move) {
+    if (!roomSnapshot || !playerSeat || playerSeat !== turn || !roomReady) {
+      setRoomStatus("Wait for your turn.");
+      return;
+    }
+
+    const { board: nextBoard, move: moveWithMetadata } = applyMoveWithMetadata(
+      board,
+      move,
+    );
+    const continuingCaptures = moveWithMetadata.captured?.length
+      ? getContinuingCaptures(nextBoard, move.to)
+      : [];
+    const mustContinue = continuingCaptures.length > 0;
+    const nextTurn = mustContinue ? turn : turn === "red" ? "black" : "red";
+    const nextWinner = mustContinue ? null : getWinner(nextBoard, nextTurn);
+    const notation = `${turn === "red" ? "Red" : "Black"} ${formatSquare(move.from)}${move.captured?.length ? "x" : "-"}${formatSquare(move.to)}`;
+
+    setRoomStatus("Syncing move.");
+
+    try {
+      const nextRoom = await updateRoomBoard({
+        room: roomSnapshot.room,
+        board: nextBoard,
+        turn: nextTurn,
+        status: nextWinner ? "finished" : "active",
+      });
+
+      setBoard(nextBoard);
+      setMoveLog((current) => [notation, ...current]);
+      setPlayedMoves((current) => [...current, { ...moveWithMetadata, player: turn }]);
+      setMatchStarted(true);
+      setTurn(nextTurn);
+      setForcedPiece(mustContinue ? move.to : null);
+      setLastMove(move);
+      setWinner(nextWinner);
+      setSelected(null);
+      setRoomSnapshot((current) =>
+        current ? { ...current, room: nextRoom } : current,
+      );
+      setRoomStatus(
+        nextWinner
+          ? formatWinner(nextWinner)
+          : mustContinue
+            ? "Continue the capture chain."
+            : "Move synced.",
+      );
+    } catch (error) {
+      setRoomStatus(error instanceof Error ? error.message : "Could not sync move.");
+    }
   }
 
   return (
@@ -361,7 +861,11 @@ export function PlayScreen() {
           />
           <div className="turn-box">
             {winner
-              ? `${winner === "red" ? "Red" : "Black"} wins`
+              ? formatWinner(winner)
+              : mode === "friend" && roomSnapshot?.room.status === "finished"
+                ? "Room finished"
+              : mode === "friend" && !roomReady
+                ? "Waiting for friend"
               : !matchStarted
                 ? "Move a piece to start the game."
                 : forcedPiece
@@ -380,42 +884,40 @@ export function PlayScreen() {
         </div>
 
         <div className="board" role="grid" aria-label="Checkers board">
-          {board.map((row, rowIndex) =>
-            row.map((piece, colIndex) => {
-              const square = { row: rowIndex, col: colIndex };
-              const key = squareKey(square);
-              const legalMove = selectedMoves.find(
-                (move) => squareKey(move.to) === key,
-              );
-              const isSelected = selected && squareKey(selected) === key;
-              const isLastMove =
-                lastMove &&
-                (squareKey(lastMove.from) === key || squareKey(lastMove.to) === key);
+          {displayedSquares.map((square) => {
+            const piece = board[square.row][square.col];
+            const key = squareKey(square);
+            const legalMove = selectedMoves.find(
+              (move) => squareKey(move.to) === key,
+            );
+            const isSelected = selected && squareKey(selected) === key;
+            const isLastMove =
+              lastMove &&
+              (squareKey(lastMove.from) === key || squareKey(lastMove.to) === key);
 
-              return (
-                <button
-                  aria-label={`${formatSquare(square)} ${piece ? `${piece.player} piece` : "empty"}`}
-                  className={[
-                    "square",
-                    (rowIndex + colIndex) % 2 === 0 ? "light" : "dark",
-                    isSelected ? "selected" : "",
-                    isLastMove ? "last-move" : "",
-                    legalMove ? (legalMove.captured?.length ? "capture" : "legal") : "",
-                  ]
-                    .filter(Boolean)
-                    .join(" ")}
-                  key={key}
-                  onClick={() => handleSquareClick(square)}
-                  role="gridcell"
-                  type="button"
-                >
-                  {piece ? (
-                    <span className={`piece ${piece.player} ${piece.king ? "king" : ""}`} />
-                  ) : null}
-                </button>
-              );
-            }),
-          )}
+            return (
+              <button
+                aria-label={`${formatSquare(square)} ${piece ? `${piece.player} piece` : "empty"}`}
+                className={[
+                  "square",
+                  (square.row + square.col) % 2 === 0 ? "light" : "dark",
+                  isSelected ? "selected" : "",
+                  isLastMove ? "last-move" : "",
+                  legalMove ? (legalMove.captured?.length ? "capture" : "legal") : "",
+                ]
+                  .filter(Boolean)
+                  .join(" ")}
+                key={key}
+                onClick={() => handleSquareClick(square)}
+                role="gridcell"
+                type="button"
+              >
+                {piece ? (
+                  <span className={`piece ${piece.player} ${piece.king ? "king" : ""}`} />
+                ) : null}
+              </button>
+            );
+          })}
         </div>
 
         <div className="board-actions">
@@ -451,25 +953,29 @@ export function PlayScreen() {
             <label className="field">
               <span>Mode</span>
               <select
-                onChange={(event) => handleModeChange(event.target.value as GameMode)}
+                onChange={(event) =>
+                  void handleModeChange(event.target.value as GameMode)
+                }
                 value={mode}
               >
                 <option value="ai">Vs AI</option>
                 <option value="local">Local two-player</option>
+                <option value="friend">Play a friend</option>
               </select>
             </label>
-            <label className="field">
-              <span>AI level</span>
-              <select
-                disabled={mode !== "ai"}
-                onChange={(event) => setDifficulty(event.target.value as AiDifficulty)}
-                value={difficulty}
-              >
-                <option value="rookie">Rookie</option>
-                <option value="challenger">Challenger</option>
-                <option value="master">Master</option>
-              </select>
-            </label>
+            {mode === "ai" ? (
+              <label className="field">
+                <span>AI level</span>
+                <select
+                  onChange={(event) => setDifficulty(event.target.value as AiDifficulty)}
+                  value={difficulty}
+                >
+                  <option value="rookie">Rookie</option>
+                  <option value="challenger">Challenger</option>
+                  <option value="master">Master</option>
+                </select>
+              </label>
+            ) : null}
             {mode === "local" ? (
               <label className="field">
                 <span>Time control</span>
@@ -489,12 +995,80 @@ export function PlayScreen() {
         </section>
 
         <section className="panel-section">
-          <h2>Friend room</h2>
-          <p className="muted-line">Create an invite link and claim seats through Supabase.</p>
-          <a className="button" href="/room">
-            <Link2 size={18} />
-            Open room
-          </a>
+          <h2>Play a friend</h2>
+          <p className="muted-line">{roomStatus}</p>
+          {roomReady ? (
+            <button
+              className="button danger"
+              onClick={() => void leaveFriendRoom()}
+              type="button"
+            >
+              Leave
+            </button>
+          ) : (
+            <>
+              <div className="friend-actions">
+                <button
+                  className="button"
+                  disabled={roomLoading || !profile}
+                  onClick={handleCreateInvite}
+                  type="button"
+                >
+                  <Link2 size={18} />
+                  {roomLoading ? "Working" : "Invite"}
+                </button>
+                <button
+                  className="button"
+                  disabled={roomLoading || !profile}
+                  onClick={() => setShowJoinForm((current) => !current)}
+                  type="button"
+                >
+                  <UserPlus size={18} />
+                  Join
+                </button>
+              </div>
+              {showJoinForm ? (
+                <div className="friend-join-form">
+                  <input
+                    aria-label="Invite code"
+                    onChange={(event) => setJoinCode(event.target.value.toUpperCase())}
+                    placeholder="ABC123"
+                    value={joinCode}
+                  />
+                  <button
+                    className="button primary"
+                    disabled={roomLoading || !joinCode.trim()}
+                    onClick={handleJoinInvite}
+                    type="button"
+                  >
+                    Join
+                  </button>
+                </div>
+              ) : null}
+            </>
+          )}
+          {roomSnapshot && !roomReady ? (
+            <div className="room-card">
+              <button
+                className="invite-code-button"
+                onClick={copyInviteCode}
+                type="button"
+              >
+                <span>Invite code</span>
+                <strong>{roomSnapshot.room.code}</strong>
+              </button>
+              <div className="seat-row" data-filled={Boolean(playerSeat)}>
+                <span>Your side</span>
+                <strong>{formatSeat(playerSeat)}</strong>
+              </div>
+            </div>
+          ) : null}
+          {roomSnapshot && roomReady ? (
+            <div className="seat-row" data-filled={Boolean(playerSeat)}>
+              <span>Your side</span>
+              <strong>{formatSeat(playerSeat)}</strong>
+            </div>
+          ) : null}
         </section>
 
         <section className="panel-section">
@@ -562,6 +1136,60 @@ function formatClock(seconds: number) {
   const remainingSeconds = seconds % 60;
 
   return `${minutes}:${remainingSeconds.toString().padStart(2, "0")}`;
+}
+
+function formatSeat(seat: string | null | undefined) {
+  if (seat === "red") {
+    return "Red";
+  }
+
+  if (seat === "black") {
+    return "Black";
+  }
+
+  return "Waiting";
+}
+
+function formatWinner(winner: Exclude<GameWinner, null>) {
+  if (winner === "draw") {
+    return "Draw";
+  }
+
+  return `${winner === "red" ? "Red" : "Black"} wins`;
+}
+
+function getDisplayedSquares(flip: boolean): Square[] {
+  const squares = Array.from({ length: 64 }, (_, index) => ({
+    row: Math.floor(index / 8),
+    col: index % 8,
+  }));
+
+  return flip ? squares.reverse() : squares;
+}
+
+function parseRoomBoard(value: unknown): Board {
+  if (!Array.isArray(value)) {
+    return [];
+  }
+
+  return value.map((row) =>
+    Array.isArray(row)
+      ? row.map((piece) => {
+          if (!piece || typeof piece !== "object" || Array.isArray(piece)) {
+            return null;
+          }
+
+          if (piece.player !== "red" && piece.player !== "black") {
+            return null;
+          }
+
+          return {
+            player: piece.player,
+            king: piece.king === true,
+          };
+        })
+      : [],
+  );
 }
 
 function TimerBox({

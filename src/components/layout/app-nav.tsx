@@ -1,11 +1,10 @@
-import { BarChart3, Crown, Eye, Puzzle, Settings, User, Users } from "lucide-react";
+import { BarChart3, Crown, Eye, Puzzle, Settings, User } from "lucide-react";
 import { AuthStatus } from "@/features/auth/auth-status";
 
 const navItems = [
   { label: "Play", href: "/", icon: Crown },
   { label: "Puzzle", href: "/puzzle", icon: Puzzle },
   { label: "Leaderboard", href: "/leaderboard", icon: BarChart3 },
-  { label: "Room", href: "/room", icon: Users },
   { label: "Watch", href: "/watch", icon: Eye },
   { label: "Profile", href: "/profile", icon: User },
   { label: "Pro", href: "/pro", icon: Crown },

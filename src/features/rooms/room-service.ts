@@ -19,6 +19,7 @@ export async function createRoom(profile: Profile): Promise<RoomSnapshot> {
   }
 
   const code = createRoomCode();
+  const hostSeat = Math.random() < 0.5 ? "red" : "black";
   const { data: room, error: roomError } = await supabase
     .from("rooms")
     .insert({
@@ -37,7 +38,7 @@ export async function createRoom(profile: Profile): Promise<RoomSnapshot> {
   const { error: playerError } = await supabase.from("room_players").insert({
     room_id: room.id,
     user_id: profile.id,
-    seat: "red",
+    seat: hostSeat,
     display_name: profile.name,
   });
 
@@ -78,6 +79,13 @@ export async function joinRoomAsBlack(
   room: Room,
   profile: Profile,
 ): Promise<RoomSnapshot> {
+  return joinRoomAsOpponent(room, profile);
+}
+
+export async function joinRoomAsOpponent(
+  room: Room,
+  profile: Profile,
+): Promise<RoomSnapshot> {
   if (!supabase) {
     throw new Error("Supabase is not configured.");
   }
@@ -89,14 +97,18 @@ export async function joinRoomAsBlack(
     return { room, players };
   }
 
-  if (players.some((player) => player.seat === "black")) {
-    throw new Error("Black seat is already taken.");
+  const openSeat = players.some((player) => player.seat === "red")
+    ? "black"
+    : "red";
+
+  if (players.some((player) => player.seat === openSeat)) {
+    throw new Error("Both seats are already taken.");
   }
 
   const { error } = await supabase.from("room_players").insert({
     room_id: room.id,
     user_id: profile.id,
-    seat: "black",
+    seat: openSeat,
     display_name: profile.name,
   });
 
@@ -113,10 +125,12 @@ export async function updateRoomBoard({
   room,
   board,
   turn,
+  status,
 }: {
   room: Room;
   board: Board;
   turn: PlayerColor;
+  status?: Room["status"];
 }) {
   if (!supabase) {
     throw new Error("Supabase is not configured.");
@@ -127,6 +141,7 @@ export async function updateRoomBoard({
     .update({
       board_state: board as Json,
       turn,
+      ...(status ? { status } : {}),
     })
     .eq("id", room.id)
     .select("*")
