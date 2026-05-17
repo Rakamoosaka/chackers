@@ -290,6 +290,46 @@ h2 {
   font-size: 21px;
 }
 
+.board[data-skin="neon"] .piece {
+  border-color: #4502ff;
+}
+
+.board[data-skin="neon"] .piece.red {
+  background: #ff2b57;
+}
+
+.board[data-skin="neon"] .piece.black {
+  background: #121026;
+}
+
+.board[data-skin="nomad"] .piece {
+  border-color: #2f1b11;
+}
+
+.board[data-skin="nomad"] .piece.red {
+  background: #a15c24;
+}
+
+.board[data-skin="nomad"] .piece.black {
+  background: #2c2118;
+}
+
+.board[data-skin="minimal"] .piece {
+  border-color: #111827;
+}
+
+.board[data-skin="minimal"] .piece.red {
+  background: #ffffff;
+}
+
+.board[data-skin="minimal"] .piece.black {
+  background: #111827;
+}
+
+.board[data-skin="minimal"] .piece.red.king::after {
+  color: #111827;
+}
+
 .board-actions {
   display: flex;
   flex-wrap: wrap;
@@ -306,6 +346,7 @@ h2 {
   gap: 8px;
   min-height: 40px;
   padding: 8px 12px;
+  text-decoration: none;
 }
 
 .button.primary {
@@ -373,6 +414,10 @@ h2 {
   border: 1px solid var(--border);
   min-height: 38px;
   padding: 6px 8px;
+}
+
+.field input[aria-invalid="true"] {
+  border-color: var(--danger);
 }
 
 .room-hero,
@@ -557,6 +602,10 @@ h2 {
   background: var(--secondary);
 }
 
+.skin-row:disabled {
+  color: var(--muted);
+}
+
 .skin-swatch {
   border: 1px solid var(--text);
   height: 24px;
@@ -577,6 +626,79 @@ h2 {
 
 .skin-swatch.minimal {
   background: var(--surface-muted);
+}
+
+.skin-lock {
+  align-items: center;
+  color: var(--muted);
+  display: inline-flex;
+  font-size: 13px;
+  gap: 4px;
+  margin-left: auto;
+}
+
+.payment-form {
+  border: 1px solid var(--border);
+  display: grid;
+  gap: 12px;
+  margin-top: 16px;
+  padding: 12px;
+}
+
+.payment-row {
+  display: grid;
+  gap: 12px;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  min-width: 0;
+}
+
+.payment-success {
+  align-items: center;
+  border: 1px solid var(--success);
+  color: var(--success);
+  display: flex;
+  gap: 8px;
+  margin-top: 16px;
+  padding: 10px;
+}
+
+.billing-modal-backdrop {
+  align-items: center;
+  background: rgba(17, 24, 39, 0.44);
+  display: flex;
+  inset: 0;
+  justify-content: center;
+  padding: 16px;
+  position: fixed;
+  z-index: 30;
+}
+
+.billing-dialog {
+  background: var(--surface);
+  border: 1px solid var(--text);
+  display: grid;
+  gap: 12px;
+  max-width: 420px;
+  padding: 16px;
+  width: min(100%, 420px);
+}
+
+.billing-dialog .auth-dialog-head {
+  align-items: start;
+}
+
+.billing-dialog .field {
+  min-width: 0;
+}
+
+.billing-dialog input {
+  min-width: 0;
+  width: 100%;
+}
+
+.billing-dialog .button.primary {
+  justify-content: center;
+  width: 100%;
 }
 
 .setup-check-list {
@@ -677,6 +799,10 @@ h2 {
   border-bottom: 1px solid var(--border);
   color: var(--foreground);
   padding: 5px 0;
+}
+
+.coach-locked .button {
+  justify-content: center;
 }
 
 .muted-line {
@@ -986,6 +1112,10 @@ h2 {
 
 @media (max-width: 560px) {
   .match-strip {
+    grid-template-columns: 1fr;
+  }
+
+  .payment-row {
     grid-template-columns: 1fr;
   }
 

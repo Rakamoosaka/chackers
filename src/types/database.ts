@@ -33,6 +33,8 @@ export type Database = {
           wins: number;
           losses: number;
           puzzle_streak: number;
+          is_pro: boolean;
+          pro_started_at: string | null;
           created_at: string;
           updated_at: string;
         },
@@ -46,6 +48,8 @@ export type Database = {
           wins?: number;
           losses?: number;
           puzzle_streak?: number;
+          is_pro?: boolean;
+          pro_started_at?: string | null;
         }
       >;
       matches: Table<

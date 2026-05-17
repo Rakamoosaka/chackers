@@ -1,9 +1,11 @@
 "use client";
 
-import { Flag, Link2, RotateCcw, StepBack, UserPlus } from "lucide-react";
+import { Flag, Link2, Lock, RotateCcw, StepBack, UserPlus } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { ProfileSummary } from "@/features/profile/profile-summary";
 import { useProfile } from "@/features/profile/use-profile";
+import { GetPro } from "@/features/pro/get-pro";
+import { FREE_COACH_REPORT_LIMIT, useProAccess } from "@/features/pro/pro-access";
 import {
   createRoom,
   finishRoom,
@@ -78,10 +80,23 @@ export function PlayScreen() {
   const [joinCode, setJoinCode] = useState("");
   const [showJoinForm, setShowJoinForm] = useState(false);
   const savedMatchKeyRef = useRef<string | null>(null);
+  const [activeCoachReportKey, setActiveCoachReportKey] = useState<string | null>(
+    null,
+  );
   const loadedInviteCodeRef = useRef<string | null>(null);
   const confirmedNavigationRef = useRef(false);
   const { profile, loading: profileLoading, error: profileError, refreshProfile } =
     useProfile();
+  const {
+    canUseSkin,
+    coachReportsRemaining,
+    coachReportsUsed,
+    isPro,
+    pieceSkins,
+    recordCoachReport,
+    selectedSkin,
+    setSelectedSkin,
+  } = useProAccess();
   const playerSeat = useMemo(() => {
     if (!profile || !roomSnapshot) {
       return null;
@@ -134,11 +149,37 @@ export function PlayScreen() {
     winner && !profile ? "Sign in to save this result." : saveStatus;
   const coachSummary =
     winner && winner !== "draw" ? analyzeGame(playedMoves, winner) : null;
+  const coachReportKey = coachSummary
+    ? `${winner}-${playedMoves.length}-${playedMoves.at(-1)?.to.row ?? "none"}-${playedMoves.at(-1)?.to.col ?? "none"}`
+    : null;
+  const canShowCoachReport =
+    Boolean(coachSummary) &&
+    (isPro || activeCoachReportKey === coachReportKey || coachReportsUsed < FREE_COACH_REPORT_LIMIT);
 
   useEffect(() => {
     activeFriendGameRef.current = activeFriendGame;
     roomSnapshotRef.current = roomSnapshot;
   }, [activeFriendGame, roomSnapshot]);
+
+  useEffect(() => {
+    if (!coachSummary || !coachReportKey || activeCoachReportKey === coachReportKey) {
+      return;
+    }
+
+    const timer = window.setTimeout(() => {
+      if (isPro || recordCoachReport()) {
+        setActiveCoachReportKey(coachReportKey);
+      }
+    }, 0);
+
+    return () => window.clearTimeout(timer);
+  }, [
+    activeCoachReportKey,
+    coachReportKey,
+    coachSummary,
+    isPro,
+    recordCoachReport,
+  ]);
 
   const commitMove = useCallback((move: Move) => {
     setHistory((current) => [
@@ -563,6 +604,7 @@ export function PlayScreen() {
     setMatchStarted(false);
     setRoomSnapshot(null);
     setRoomStatus("Create an invite to play a friend.");
+    setActiveCoachReportKey(null);
     savedMatchKeyRef.current = null;
     setSaveStatus(profile ? "Ready to save completed games." : "Sign in to save games.");
   }
@@ -838,7 +880,12 @@ export function PlayScreen() {
           />
         </div>
 
-        <div className="board" role="grid" aria-label="Checkers board">
+        <div
+          className="board"
+          data-skin={selectedSkin}
+          role="grid"
+          aria-label="Checkers board"
+        >
           {displayedSquares.map((square) => {
             const piece = board[square.row][square.col];
             const key = squareKey(square);
@@ -1047,7 +1094,7 @@ export function PlayScreen() {
 
         <section className="panel-section">
           <h2>Coach</h2>
-          {coachSummary ? (
+          {coachSummary && canShowCoachReport ? (
             <div className="coach-report">
               <div>
                 <strong>{coachSummary.accuracy}%</strong>
@@ -1063,6 +1110,16 @@ export function PlayScreen() {
                 <span>{coachSummary.puzzleTheme}</span>
               </div>
             </div>
+          ) : coachSummary ? (
+            <div className="coach-report coach-locked">
+              <div>
+                <Lock size={18} />
+                <strong>Pro</strong>
+              </div>
+              <p>Daily free coach reports are used.</p>
+              <p>Start fake Pro to unlock this post-game report.</p>
+              <GetPro label="Get Pro" />
+            </div>
           ) : (
             <p className="coach-note">
               {forcedPiece
@@ -1072,7 +1129,42 @@ export function PlayScreen() {
                   : "Develop pieces toward the center before chasing edge trades."}
             </p>
           )}
+          <p className="muted-line">
+            {isPro
+              ? "AI Coach is unlimited with Pro."
+              : `${coachReportsRemaining} of ${FREE_COACH_REPORT_LIMIT} free coach reports left today.`}
+          </p>
           <p className="muted-line">{displayedSaveStatus}</p>
+        </section>
+
+        <section className="panel-section">
+          <h2>Piece skins</h2>
+          <div className="skin-list">
+            {pieceSkins.map((skin) => {
+              const locked = !canUseSkin(skin.id);
+
+              return (
+                <button
+                  className="skin-row"
+                  data-current={selectedSkin === skin.id}
+                  disabled={locked}
+                  key={skin.id}
+                  onClick={() => setSelectedSkin(skin.id)}
+                  type="button"
+                >
+                  <span className={`skin-swatch ${skin.id}`} />
+                  <strong>{skin.name}</strong>
+                  {locked ? (
+                    <span className="skin-lock">
+                      <Lock size={14} />
+                      Pro
+                    </span>
+                  ) : null}
+                </button>
+              );
+            })}
+          </div>
+          {!isPro ? <GetPro label="Unlock skins" /> : null}
         </section>
 
         <ProfileSummary

@@ -52,7 +52,7 @@ export function ProfileScreen() {
             <h2>{profile.name}</h2>
             <p className="muted-line">{profile.city}</p>
           </div>
-          <strong>{profile.league}</strong>
+          <strong>{profile.is_pro ? "Pro" : profile.league}</strong>
         </div>
 
         <div className="profile-grid profile-grid-wide">
@@ -62,6 +62,7 @@ export function ProfileScreen() {
           <Stat label="Losses" value={profile.losses.toString()} />
           <Stat label="Win rate" value={`${winRate}%`} />
           <Stat label="Puzzle streak" value={profile.puzzle_streak.toString()} />
+          <Stat label="Plan" value={profile.is_pro ? "Pro" : "Free"} />
         </div>
       </section>
 

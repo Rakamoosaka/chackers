@@ -8,9 +8,17 @@ create table if not exists public.profiles (
   wins integer not null default 0,
   losses integer not null default 0,
   puzzle_streak integer not null default 0,
+  is_pro boolean not null default false,
+  pro_started_at timestamptz,
   created_at timestamptz not null default now(),
   updated_at timestamptz not null default now()
 );
+
+alter table public.profiles
+  add column if not exists is_pro boolean not null default false;
+
+alter table public.profiles
+  add column if not exists pro_started_at timestamptz;
 
 create table if not exists public.matches (
   id uuid primary key default gen_random_uuid(),

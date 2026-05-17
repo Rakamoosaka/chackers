@@ -38,11 +38,6 @@ export function ProfileSummary({
     );
   }
 
-  const winRate =
-    profile.games_played > 0
-      ? Math.round((profile.wins / profile.games_played) * 100)
-      : 0;
-
   return (
     <section className="panel-section">
       <h2>Profile</h2>
@@ -50,7 +45,7 @@ export function ProfileSummary({
         <Stat label="Rating" value={profile.rating.toString()} />
         <Stat label="League" value={profile.league} />
         <Stat label="Games" value={profile.games_played.toString()} />
-        <Stat label="Win rate" value={`${winRate}%`} />
+        <Stat label="Plan" value={profile.is_pro ? "Pro" : "Free"} />
       </div>
     </section>
   );

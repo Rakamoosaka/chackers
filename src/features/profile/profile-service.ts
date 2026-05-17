@@ -101,3 +101,25 @@ export async function updateProfileAfterMatch(
 
   return data;
 }
+
+export async function upgradeProfileToPro(profile: Profile) {
+  if (!supabase) {
+    throw new Error("Supabase is not configured.");
+  }
+
+  const { data, error } = await supabase
+    .from("profiles")
+    .update({
+      is_pro: true,
+      pro_started_at: profile.pro_started_at ?? new Date().toISOString(),
+    })
+    .eq("id", profile.id)
+    .select("*")
+    .single();
+
+  if (error) {
+    throw error;
+  }
+
+  return data;
+}
