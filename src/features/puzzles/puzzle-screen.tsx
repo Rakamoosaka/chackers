@@ -10,6 +10,7 @@ import {
 } from "@/features/game/engine/board";
 import type { Board, Move, Square } from "@/features/game/engine/types";
 import { useProfile } from "@/features/profile/use-profile";
+import { useProAccess } from "@/features/pro/pro-access";
 import {
   createPuzzleBoard,
   dailyPuzzles,
@@ -26,6 +27,7 @@ export function PuzzleScreen() {
   const [feedback, setFeedback] = useState("Solve the line for red.");
   const [savedKey, setSavedKey] = useState<string | null>(null);
   const { profile, refreshProfile } = useProfile();
+  const { selectedSkin } = useProAccess();
 
   const legalMoves = useMemo(
     () => getLegalMoves(board, puzzle.sideToMove),
@@ -120,7 +122,12 @@ export function PuzzleScreen() {
           </div>
         </div>
 
-        <div className="board" role="grid" aria-label="Daily checkers puzzle">
+        <div
+          className="board"
+          data-skin={selectedSkin}
+          role="grid"
+          aria-label="Daily checkers puzzle"
+        >
           {board.map((row, rowIndex) =>
             row.map((piece, colIndex) => {
               const square = { row: rowIndex, col: colIndex };

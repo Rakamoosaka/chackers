@@ -9,6 +9,7 @@ import {
   squareKey,
 } from "@/features/game/engine/board";
 import type { Board, Move } from "@/features/game/engine/types";
+import { useProAccess } from "@/features/pro/pro-access";
 
 const replayMoves: Move[] = [
   { from: { row: 5, col: 0 }, to: { row: 4, col: 1 } },
@@ -27,6 +28,7 @@ const chatLines = [
 export function WatchScreen() {
   const [step, setStep] = useState(3);
   const [reactionCount, setReactionCount] = useState(18);
+  const { selectedSkin } = useProAccess();
   const board = useMemo(() => buildReplayBoard(step), [step]);
 
   return (
@@ -44,7 +46,12 @@ export function WatchScreen() {
           </div>
         </div>
 
-        <div className="board" role="grid" aria-label="Watch party replay board">
+        <div
+          className="board"
+          data-skin={selectedSkin}
+          role="grid"
+          aria-label="Watch party replay board"
+        >
           {board.map((row, rowIndex) =>
             row.map((piece, colIndex) => {
               const square = { row: rowIndex, col: colIndex };

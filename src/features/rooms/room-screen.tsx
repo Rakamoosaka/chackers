@@ -11,6 +11,7 @@ import {
 } from "@/features/game/engine/board";
 import type { Board, Move, Player, Square } from "@/features/game/engine/types";
 import { useProfile } from "@/features/profile/use-profile";
+import { useProAccess } from "@/features/pro/pro-access";
 import { supabase } from "@/lib/supabase/client";
 import type { Json } from "@/types/database";
 import {
@@ -42,6 +43,7 @@ type RoomAction =
 
 export function RoomScreen() {
   const { profile, loading: profileLoading } = useProfile();
+  const { selectedSkin } = useProAccess();
   const [joinCode, setJoinCode] = useState(() => getInitialJoinCode());
   const [messageBody, setMessageBody] = useState("");
   const [messages, setMessages] = useState<RoomMessage[]>([]);
@@ -509,7 +511,12 @@ export function RoomScreen() {
               </button>
             </div>
 
-            <div className="board" role="grid" aria-label="Room checkers board">
+            <div
+              className="board"
+              data-skin={selectedSkin}
+              role="grid"
+              aria-label="Room checkers board"
+            >
               {board.map((row, rowIndex) =>
                 row.map((piece, colIndex) => {
                   const square = { row: rowIndex, col: colIndex };

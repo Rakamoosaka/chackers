@@ -69,7 +69,7 @@ export function useProAccess() {
     readCoachUsage(),
   );
   const [selectedSkin, setSelectedSkinState] =
-    useState<PieceSkin["id"]>(() => readSkin());
+    useState<PieceSkin["id"]>("classic");
 
   const refresh = useCallback(() => {
     const nextSkin = readSkin();
@@ -79,6 +79,10 @@ export function useProAccess() {
   }, [isPro]);
 
   useEffect(() => {
+    const timer = window.setTimeout(() => {
+      refresh();
+    }, 0);
+
     function handleChange() {
       refresh();
     }
@@ -87,6 +91,7 @@ export function useProAccess() {
     window.addEventListener(CHANGE_EVENT, handleChange);
 
     return () => {
+      window.clearTimeout(timer);
       window.removeEventListener("storage", handleChange);
       window.removeEventListener(CHANGE_EVENT, handleChange);
     };
